@@ -1,10 +1,10 @@
 import Link from "next/link";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/config/auth";
 import { getTranslations } from "next-intl/server";
 import { AttachmentRecordType } from "@/generated/prisma/enums";
 import { ProductCard } from "@/components/product-card";
+import { HeroCarousel, type HeroSlide } from "@/components/hero-carousel";
 import { resolvePublicImage } from "@/utils/resolve-public-image";
 
 export default async function Home() {
@@ -41,49 +41,41 @@ export default async function Home() {
     };
   });
 
-  const heroProduct =
-    productsWithImages.find((p) => p.imageUrl) ?? productsWithImages[0];
-  const heroImage =
-    heroProduct?.imageUrl ??
+  const productSlides: HeroSlide[] = productsWithImages
+    .filter((p) => Boolean(p.imageUrl))
+    .slice(0, 5)
+    .map((product) => ({
+      id: product.id,
+      title: product.name,
+      subtitle: [product.brand.name, product.scent?.title]
+        .filter(Boolean)
+        .join(" · "),
+      ctaHref: `/products/${product.id}`,
+      ctaLabel: t("cta.shopThisScent"),
+      imageUrl: product.imageUrl as string,
+    }));
+
+  const fallbackImage =
     resolvePublicImage("/images/products/sauvage.png") ??
     "/images/placeholder.jpeg";
 
+  const slides: HeroSlide[] =
+    productSlides.length > 0
+      ? productSlides
+      : [
+          {
+            id: "fallback",
+            title: t("page.home.heroTitleMain"),
+            subtitle: t("page.home.heroSubtitle"),
+            ctaHref: "/products",
+            ctaLabel: t("cta.shopCollection"),
+            imageUrl: fallbackImage,
+          },
+        ];
+
   return (
     <div>
-      <section className="relative grid min-h-[calc(100svh-4.25rem)] lg:grid-cols-2">
-        <div className="relative z-10 flex flex-col justify-center px-6 py-20 lg:px-12 xl:px-16">
-          <div className="mx-auto w-full max-w-xl lg:mx-0 lg:max-w-lg">
-            <h1 className="font-display text-foreground text-5xl leading-[0.95] tracking-tight sm:text-6xl md:text-7xl">
-              {t("page.home.heroTitleMain")}
-            </h1>
-            <p className="text-muted-foreground mt-6 max-w-md text-base leading-relaxed md:text-lg">
-              {t("page.home.heroSubtitle")}
-            </p>
-            <div className="mt-10">
-              <Button
-                size="lg"
-                asChild
-                className="rounded-none px-8 text-[0.7rem] tracking-[0.2em] uppercase"
-              >
-                <Link href="/products">{t("cta.shopCollection")}</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <div className="relative min-h-[48vh] lg:min-h-full">
-          <Image
-            unoptimized
-            src={heroImage}
-            alt={heroProduct?.name ?? "FragranceHub collection"}
-            fill
-            priority
-            className="object-cover object-center"
-            sizes="(max-width: 1024px) 100vw, 50vw"
-          />
-          <div className="from-background absolute inset-x-0 top-0 h-24 bg-gradient-to-b to-transparent lg:hidden" />
-        </div>
-      </section>
+      <HeroCarousel slides={slides} />
 
       <section className="mx-auto max-w-6xl px-6 py-20 lg:px-8 lg:py-28">
         <div className="mb-12 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
