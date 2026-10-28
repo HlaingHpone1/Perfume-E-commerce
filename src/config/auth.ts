@@ -7,16 +7,20 @@ import { sendPasswordResetEmail } from "@/config/email";
 
 const connectionString = `${process.env.DATABASE_URL}`;
 
-const adapter = new PrismaPg({ connectionString });
-
-export const prisma = new PrismaClient({ adapter });
-
-const globalAuth = globalThis as unknown as {
-  auth: ReturnType<typeof betterAuth>;
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+  auth: ReturnType<typeof betterAuth> | undefined;
 };
 
+function createPrismaClient() {
+  const adapter = new PrismaPg({ connectionString });
+  return new PrismaClient({ adapter });
+}
+
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+
 export const auth =
-  globalAuth.auth ||
+  globalForPrisma.auth ||
   betterAuth({
     baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_BASE_URL,
     database: prismaAdapter(prisma, {
@@ -56,5 +60,6 @@ export const auth =
   });
 
 if (process.env.NODE_ENV !== "production") {
-  globalAuth.auth = auth;
+  globalForPrisma.prisma = prisma;
+  globalForPrisma.auth = auth;
 }

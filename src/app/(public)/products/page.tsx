@@ -48,7 +48,7 @@ export default async function ProductsPage({
     ];
   }
 
-  const [products, totalCount] = await prisma.$transaction([
+  const [products, totalCount] = await Promise.all([
     prisma.product.findMany({
       where,
       include: {

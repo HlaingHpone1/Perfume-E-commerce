@@ -45,7 +45,7 @@ export default async function Home() {
     productsWithImages.find((p) => p.imageUrl) ?? productsWithImages[0];
   const heroImage =
     heroProduct?.imageUrl ??
-    resolvePublicImage("/images/products/sauvage.jpg") ??
+    resolvePublicImage("/images/products/sauvage.png") ??
     "/images/placeholder.jpeg";
 
   return (
