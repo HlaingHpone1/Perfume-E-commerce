@@ -1,5 +1,6 @@
-import { Heart, Award, Users, Globe } from "lucide-react";
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { Button } from "@/components/ui/button";
 
 export const metadata = {
   title: "About Us - FragranceHub",
@@ -9,129 +10,100 @@ export const metadata = {
 export default async function AboutPage() {
   const t = await getTranslations();
 
+  const values = [
+    {
+      title: t("page.about.values.qualityTitle"),
+      description: t("page.about.values.qualityDescription"),
+    },
+    {
+      title: t("page.about.values.careTitle"),
+      description: t("page.about.values.careDescription"),
+    },
+    {
+      title: t("page.about.values.expertTitle"),
+      description: t("page.about.values.expertDescription"),
+    },
+    {
+      title: t("page.about.values.globalTitle"),
+      description: t("page.about.values.globalDescription"),
+    },
+  ];
+
   return (
-    <div className="bg-background min-h-screen">
-      <section className="bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 py-16 md:py-24 dark:from-purple-950/20 dark:via-pink-950/20 dark:to-rose-950/20">
-        <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-3xl text-center">
-            <h1 className="mb-6 text-4xl font-bold md:text-5xl lg:text-6xl">
+    <div>
+      <section className="border-b border-[var(--border)]">
+        <div className="mx-auto max-w-6xl px-6 py-20 lg:px-8 lg:py-28">
+          <div className="max-w-2xl">
+            <h1 className="font-display text-foreground text-4xl tracking-tight md:text-5xl lg:text-6xl">
               {t("page.about.title")}
             </h1>
-            <p className="text-muted-foreground text-lg md:text-xl">
+            <p className="text-muted-foreground mt-5 text-lg leading-relaxed">
               {t("page.about.subtitle")}
             </p>
           </div>
         </div>
       </section>
 
-      <section className="py-16 md:py-24">
-        <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-4xl">
-            <div className="mb-12">
-              <h2 className="mb-6 text-3xl font-bold md:text-4xl">
-                {t("page.about.storyTitle")}
-              </h2>
-              <div className="text-muted-foreground space-y-4">
-                <p>{t("page.about.storyParagraph1")}</p>
-                <p>{t("page.about.storyParagraph2")}</p>
-                <p>{t("page.about.storyParagraph3")}</p>
-              </div>
-            </div>
-
-            <div className="mb-12">
-              <h2 className="mb-8 text-3xl font-bold md:text-4xl">
-                {t("page.about.valuesTitle")}
-              </h2>
-              <div className="grid gap-8 md:grid-cols-2">
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="bg-primary/10 rounded-full p-3">
-                      <Award className="text-primary h-6 w-6" />
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="mb-2 text-xl font-semibold">
-                      {t("page.about.values.qualityTitle")}
-                    </h3>
-                    <p className="text-muted-foreground">
-                      {t("page.about.values.qualityDescription")}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="bg-primary/10 rounded-full p-3">
-                      <Heart className="text-primary h-6 w-6" />
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="mb-2 text-xl font-semibold">
-                      {t("page.about.values.careTitle")}
-                    </h3>
-                    <p className="text-muted-foreground">
-                      {t("page.about.values.careDescription")}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="bg-primary/10 rounded-full p-3">
-                      <Users className="text-primary h-6 w-6" />
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="mb-2 text-xl font-semibold">
-                      {t("page.about.values.expertTitle")}
-                    </h3>
-                    <p className="text-muted-foreground">
-                      {t("page.about.values.expertDescription")}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="bg-primary/10 rounded-full p-3">
-                      <Globe className="text-primary h-6 w-6" />
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="mb-2 text-xl font-semibold">
-                      {t("page.about.values.globalTitle")}
-                    </h3>
-                    <p className="text-muted-foreground">
-                      {t("page.about.values.globalDescription")}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-muted rounded-2xl p-8 md:p-12">
-              <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-                {t("page.about.missionTitle")}
-              </h2>
-              <p className="text-muted-foreground text-lg">
-                {t("page.about.missionText")}
-              </p>
-            </div>
+      <section className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-24">
+        <div className="max-w-3xl">
+          <h2 className="font-display text-foreground text-3xl tracking-tight md:text-4xl">
+            {t("page.about.storyTitle")}
+          </h2>
+          <div className="text-muted-foreground mt-8 space-y-5 text-base leading-relaxed">
+            <p>{t("page.about.storyParagraph1")}</p>
+            <p>{t("page.about.storyParagraph2")}</p>
+            <p>{t("page.about.storyParagraph3")}</p>
           </div>
+        </div>
+
+        <div className="mt-20">
+          <h2 className="font-display text-foreground text-3xl tracking-tight md:text-4xl">
+            {t("page.about.valuesTitle")}
+          </h2>
+          <div className="mt-10 grid gap-10 md:grid-cols-2">
+            {values.map((value) => (
+              <div
+                key={value.title}
+                className="border-t border-[var(--border)] pt-6"
+              >
+                <h3 className="text-foreground text-lg font-medium">
+                  {value.title}
+                </h3>
+                <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+                  {value.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-20 max-w-3xl border border-[var(--border)] bg-[var(--card)] p-8 md:p-12">
+          <h2 className="font-display text-foreground text-3xl tracking-tight">
+            {t("page.about.missionTitle")}
+          </h2>
+          <p className="text-muted-foreground mt-5 text-base leading-relaxed">
+            {t("page.about.missionText")}
+          </p>
         </div>
       </section>
 
-      <section className="bg-muted/50 py-16">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="mb-4 text-3xl font-bold">
-            {t("page.about.ctaTitle")}
-          </h2>
-          <p className="text-muted-foreground mb-8">
-            {t("page.about.ctaSubtitle")}
-          </p>
-          <a
-            href="/products"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center justify-center rounded-md px-8 text-sm font-medium transition-colors"
+      <section className="border-t border-[var(--border)]">
+        <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-6 py-16 lg:flex-row lg:items-end lg:justify-between lg:px-8 lg:py-20">
+          <div className="max-w-lg">
+            <h2 className="font-display text-foreground text-3xl tracking-tight">
+              {t("page.about.ctaTitle")}
+            </h2>
+            <p className="text-muted-foreground mt-3 text-base">
+              {t("page.about.ctaSubtitle")}
+            </p>
+          </div>
+          <Button
+            asChild
+            size="lg"
+            className="rounded-none px-8 text-[0.7rem] tracking-[0.2em] uppercase"
           >
-            {t("cta.shopNow")}
-          </a>
+            <Link href="/products">{t("cta.shopNow")}</Link>
+          </Button>
         </div>
       </section>
     </div>

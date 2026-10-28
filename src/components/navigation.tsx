@@ -17,6 +17,7 @@ import { useTranslations } from "next-intl";
 import { LogOut, Package, ShoppingBag, User } from "lucide-react";
 import { signOut, useSession } from "@/config/auth-client";
 import { useCartStore } from "@/stores/useCartStore";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Navigation() {
   const pathname = usePathname();
@@ -24,11 +25,8 @@ export function Navigation() {
   const tNav = useTranslations("navigation");
   const tCta = useTranslations("cta");
 
-  // Get session data
   const { data } = useSession();
-
   const color = stringToColor(data?.user.email ?? "");
-
   const cartCount = useCartStore((state) => state.getCartCount());
 
   const handleLogout = async () => {
@@ -36,7 +34,7 @@ export function Navigation() {
       fetchOptions: {
         onSuccess: () => {
           router.refresh();
-          router.push("/"); // Redirect to home after logout
+          router.push("/");
         },
       },
     });
@@ -50,26 +48,24 @@ export function Navigation() {
   ];
 
   return (
-    <nav className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 w-full border-b backdrop-blur">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        {/* Logo */}
-        <Link href="/" className="flex items-center space-x-2">
-          <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-2xl font-bold text-transparent">
+    <nav className="bg-background/90 sticky top-0 z-50 w-full border-b border-[var(--border)] backdrop-blur-md">
+      <div className="mx-auto flex h-[4.25rem] max-w-6xl items-center justify-between px-6 lg:px-8">
+        <Link href="/" className="group">
+          <span className="font-display text-foreground text-[1.65rem] leading-none tracking-tight transition-opacity group-hover:opacity-70">
             FragranceHub
           </span>
         </Link>
 
-        {/* Desktop Navigation Links */}
-        <div className="hidden items-center space-x-6 md:flex">
+        <div className="hidden items-center gap-8 md:flex">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "hover:text-primary text-sm font-medium transition-colors",
+                "text-[0.7rem] tracking-[0.2em] uppercase transition-colors",
                 pathname === item.href
-                  ? "text-primary"
-                  : "text-muted-foreground",
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               {item.label}
@@ -77,14 +73,18 @@ export function Navigation() {
           ))}
         </div>
 
-        {/* Right Side Actions */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <ThemeToggle />
           {data ? (
             <>
-              <Link href="/cart" className="group relative p-2">
-                <ShoppingBag className="group-hover:text-primary h-6 w-6 text-gray-600 transition-colors" />
+              <Link
+                href="/cart"
+                className="text-foreground relative p-2 transition-opacity hover:opacity-70"
+                aria-label="Cart"
+              >
+                <ShoppingBag className="h-5 w-5" strokeWidth={1.5} />
                 {cartCount > 0 && (
-                  <span className="bg-primary absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
+                  <span className="bg-primary text-primary-foreground absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-medium">
                     {cartCount}
                   </span>
                 )}
@@ -95,10 +95,10 @@ export function Navigation() {
                     variant="ghost"
                     className="relative h-8 w-8 rounded-full"
                   >
-                    <Avatar className="h-8 w-8 rounded-lg">
+                    <Avatar className="h-8 w-8 rounded-full">
                       <AvatarImage />
                       <AvatarFallback
-                        className={`rounded-lg`}
+                        className="rounded-full text-xs"
                         style={{
                           color: color.textColor,
                           backgroundColor: color.bgColor,
@@ -136,7 +136,7 @@ export function Navigation() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={handleLogout}
-                    className="cursor-pointer text-red-600 focus:text-red-600"
+                    className="text-destructive focus:text-destructive cursor-pointer"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>{tNav("logout")}</span>
@@ -145,18 +145,20 @@ export function Navigation() {
               </DropdownMenu>
             </>
           ) : (
-            // LOGGED OUT STATE: Login Button
-            <Button variant="ghost" size="sm" asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="text-[0.7rem] tracking-[0.16em] uppercase"
+            >
               <Link href="/login">{tNav("login")}</Link>
             </Button>
           )}
 
-          {/* Shop Now CTA (Always Visible or conditional based on preference) */}
           <Button
-            variant="outline"
             size="sm"
             asChild
-            className="hidden sm:flex"
+            className="hidden rounded-none px-4 text-[0.65rem] tracking-[0.18em] uppercase sm:inline-flex"
           >
             <Link href="/products">{tCta("shopNow")}</Link>
           </Button>

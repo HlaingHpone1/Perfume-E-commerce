@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Package, ChevronRight } from "lucide-react";
+import { Package } from "lucide-react";
 
 export const metadata = {
   title: "My Orders - FragranceHub",
@@ -38,41 +38,59 @@ export default async function OrdersPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50/50 py-10">
-      <div className="container mx-auto max-w-5xl px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+    <div className="min-h-screen py-12 lg:py-16">
+      <div className="mx-auto max-w-5xl px-6 lg:px-8">
+        <div className="mb-10">
+          <h1 className="font-display text-foreground text-4xl tracking-tight">
             My Orders
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mt-2 text-sm">
             View and track your past purchases.
           </p>
         </div>
 
         {orders.length === 0 ? (
-          <div className="flex min-h-[400px] flex-col items-center justify-center rounded-xl border bg-white p-8 text-center shadow-sm">
-            <div className="mb-4 rounded-full bg-gray-100 p-4">
-              <Package className="h-8 w-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-semibold">No orders found</h3>
-            <p className="text-muted-foreground mb-4">
+          <div className="flex min-h-[360px] flex-col items-center justify-center border border-[var(--border)] bg-[var(--card)] px-8 py-16 text-center">
+            <Package
+              className="text-muted-foreground mb-5 h-8 w-8"
+              strokeWidth={1.25}
+            />
+            <h3 className="font-display text-foreground text-2xl tracking-tight">
+              No orders found
+            </h3>
+            <p className="text-muted-foreground mt-2 mb-8 text-sm">
               You haven&apos;t placed any orders yet.
             </p>
-            <Button asChild>
+            <Button
+              asChild
+              className="rounded-none text-[0.65rem] tracking-[0.18em] uppercase"
+            >
               <Link href="/products">Start Shopping</Link>
             </Button>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
+          <div className="overflow-hidden border border-[var(--border)] bg-[var(--card)]">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Order ID</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="text-[0.65rem] tracking-[0.16em] uppercase">
+                    Order
+                  </TableHead>
+                  <TableHead className="text-[0.65rem] tracking-[0.16em] uppercase">
+                    Date
+                  </TableHead>
+                  <TableHead className="text-[0.65rem] tracking-[0.16em] uppercase">
+                    Status
+                  </TableHead>
+                  <TableHead className="text-[0.65rem] tracking-[0.16em] uppercase">
+                    Items
+                  </TableHead>
+                  <TableHead className="text-right text-[0.65rem] tracking-[0.16em] uppercase">
+                    Total
+                  </TableHead>
+                  <TableHead className="text-right text-[0.65rem] tracking-[0.16em] uppercase">
+                    Action
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -88,14 +106,17 @@ export default async function OrdersPage() {
                       <StatusBadge status={order.status} />
                     </TableCell>
                     <TableCell>{order._count.items} items</TableCell>
-                    <TableCell className="text-right font-bold">
+                    <TableCell className="text-right font-medium">
                       ${order.totalAmount.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button asChild variant="ghost" size="sm">
-                        <Link href={`/orders/${order.id}`}>
-                          View <ChevronRight className="ml-1 h-4 w-4" />
-                        </Link>
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="sm"
+                        className="text-[0.65rem] tracking-[0.14em] uppercase"
+                      >
+                        <Link href={`/orders/${order.id}`}>View</Link>
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -111,17 +132,18 @@ export default async function OrdersPage() {
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    Placed: "bg-blue-100 text-blue-700 hover:bg-blue-100",
-    Processing: "bg-yellow-100 text-yellow-700 hover:bg-yellow-100",
-    Shipped: "bg-purple-100 text-purple-700 hover:bg-purple-100",
-    Delivered: "bg-green-100 text-green-700 hover:bg-green-100",
-    Cancelled: "bg-red-100 text-red-700 hover:bg-red-100",
+    Placed: "bg-[var(--secondary)] text-foreground border-[var(--border)]",
+    Processing: "bg-[var(--secondary)] text-foreground border-[var(--border)]",
+    Shipped: "bg-[var(--secondary)] text-foreground border-[var(--border)]",
+    Delivered:
+      "bg-[var(--secondary)] text-[var(--primary)] border-[var(--border)]",
+    Cancelled: "bg-destructive/10 text-destructive border-destructive/20",
   };
 
   return (
     <Badge
-      className={styles[status] || "bg-gray-100 text-gray-700"}
-      variant="secondary"
+      className={`rounded-none font-normal ${styles[status] || "text-foreground bg-[var(--secondary)]"}`}
+      variant="outline"
     >
       {status}
     </Badge>

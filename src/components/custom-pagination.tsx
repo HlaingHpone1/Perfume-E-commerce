@@ -76,15 +76,20 @@ const CustomPagination = ({ totalPages }: CustomPaginationProps) => {
   const pageRange = getPageRange(page, totalPages);
 
   return (
-    <div className="mt-3 flex flex-wrap items-center justify-end">
+    <div className="mt-12 flex flex-wrap items-center justify-end gap-4 border-t border-[var(--border)] pt-8">
       {/* Rows Per Page */}
       <div className="flex items-center space-x-2">
-        <Label htmlFor="rows-per-page">{t("pagination.rows_per_page")}:</Label>
+        <Label
+          htmlFor="rows-per-page"
+          className="text-muted-foreground text-xs tracking-wide"
+        >
+          {t("pagination.rows_per_page")}:
+        </Label>
         <Select
           value={limit.toString()}
           onValueChange={(value) => handleLimitChange(Number(value))}
         >
-          <SelectTrigger id="rows-per-page" className="w-25 bg-white">
+          <SelectTrigger id="rows-per-page" className="w-25 rounded-none">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

@@ -11,13 +11,13 @@ export default async function RegisterPage() {
   const t = await getTranslations();
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8 rounded-2xl bg-white p-8 shadow-2xl">
+    <div className="flex min-h-[70vh] items-center justify-center px-6 py-16">
+      <div className="w-full max-w-md space-y-8 border border-[var(--border)] bg-[var(--card)] p-8 sm:p-10">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight">
+          <h2 className="font-display text-foreground text-center text-3xl tracking-tight">
             {t("page.auth.registerTitle")}
           </h2>
-          <p className="text-muted-foreground mt-2 text-center text-sm">
+          <p className="text-muted-foreground mt-3 text-center text-sm">
             {t("page.auth.registerSubtitle")}
           </p>
         </div>

@@ -8,6 +8,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-storefront-display), ui-serif, Georgia, serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -122,4 +123,98 @@
   body {
     @apply text-foreground bg-gray-200;
   }
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 22%, transparent);
+  }
+}
+
+/* FragranceHub customer storefront — light atelier (scoped; admin untouched) */
+.storefront {
+  --radius: 0.25rem;
+  --background: oklch(0.975 0.006 95);
+  --foreground: oklch(0.22 0.02 155);
+  --card: oklch(0.99 0.004 95);
+  --card-foreground: oklch(0.22 0.02 155);
+  --popover: oklch(0.99 0.004 95);
+  --popover-foreground: oklch(0.22 0.02 155);
+  --primary: oklch(0.32 0.055 155);
+  --primary-foreground: oklch(0.98 0.005 95);
+  --secondary: oklch(0.94 0.01 95);
+  --secondary-foreground: oklch(0.28 0.03 155);
+  --muted: oklch(0.945 0.008 95);
+  --muted-foreground: oklch(0.48 0.02 155);
+  --accent: oklch(0.93 0.015 95);
+  --accent-foreground: oklch(0.28 0.03 155);
+  --destructive: oklch(0.5 0.16 25);
+  --border: oklch(0.88 0.01 95);
+  --input: oklch(0.88 0.01 95);
+  --ring: oklch(0.42 0.05 155);
+  --storefront-bronze: oklch(0.55 0.06 75);
+  --storefront-mist: oklch(0.94 0.012 120);
+  --font-sans: var(--font-storefront-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-storefront-display), ui-serif, Georgia, serif;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+.storefront .font-display {
+  font-family: var(--font-display);
+}
+
+/* Smooth day ↔ night theme crossfade */
+html {
+  color-scheme: light dark;
+}
+
+.storefront,
+.storefront nav,
+.storefront main,
+.storefront footer {
+  transition:
+    background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.storefront *:not(svg):not(path):not(img) {
+  transition-property: background-color, color, border-color, outline-color,
+    fill, stroke, box-shadow, opacity, text-decoration-color;
+  transition-duration: 0.5s;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .storefront,
+  .storefront nav,
+  .storefront main,
+  .storefront footer,
+  .storefront *:not(svg):not(path):not(img) {
+    transition: none;
+  }
+}
+
+/* FragranceHub night atelier — calm stone charcoal, not club lighting */
+.dark .storefront {
+  --background: oklch(0.2 0.015 155);
+  --foreground: oklch(0.95 0.008 95);
+  --card: oklch(0.24 0.014 155);
+  --card-foreground: oklch(0.95 0.008 95);
+  --popover: oklch(0.24 0.014 155);
+  --popover-foreground: oklch(0.95 0.008 95);
+  --primary: oklch(0.72 0.06 155);
+  --primary-foreground: oklch(0.18 0.02 155);
+  --secondary: oklch(0.28 0.015 155);
+  --secondary-foreground: oklch(0.92 0.008 95);
+  --muted: oklch(0.27 0.014 155);
+  --muted-foreground: oklch(0.72 0.015 120);
+  --accent: oklch(0.3 0.018 155);
+  --accent-foreground: oklch(0.95 0.008 95);
+  --destructive: oklch(0.65 0.16 25);
+  --border: oklch(0.34 0.015 155);
+  --input: oklch(0.34 0.015 155);
+  --ring: oklch(0.68 0.05 155);
+  --storefront-bronze: oklch(0.7 0.05 75);
+  --storefront-mist: oklch(0.26 0.014 155);
 }

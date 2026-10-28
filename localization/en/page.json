@@ -1,8 +1,8 @@
 {
   "home": {
-    "heroTitleMain": "Discover Your Signature",
-    "heroTitleHighlight": "Fragrance",
-    "heroSubtitle": "Explore our curated collection of luxury perfumes from world-renowned brands. Find the perfect scent that defines you.",
+    "heroTitleMain": "FragranceHub",
+    "heroTitleHighlight": "",
+    "heroSubtitle": "Find the scent that stays with you — a quiet collection for the signature hunt.",
     "features": {
       "premiumTitle": "Premium Quality",
       "premiumDescription": "Authentic fragrances from trusted brands worldwide",
@@ -13,21 +13,21 @@
       "careTitle": "Customer Care",
       "careDescription": "Dedicated support for all your fragrance needs"
     },
-    "featuredTitle": "Featured Fragrances",
-    "featuredSubtitle": "Discover our handpicked selection of premium perfumes",
-    "ctaTitle": "Ready to Find Your Signature Scent?",
-    "ctaSubtitle": "Browse our complete collection and discover the perfect fragrance for you"
+    "featuredTitle": "New Arrivals",
+    "featuredSubtitle": "Recently added to the atelier",
+    "ctaTitle": "Continue the hunt",
+    "ctaSubtitle": "Browse the full collection at your pace"
   },
   "products": {
-    "title": "Our Fragrance Collection",
-    "subtitle": "Discover premium perfumes from world-renowned brands",
+    "title": "Collection",
+    "subtitle": "Curated fragrances for a signature scent",
     "filterAll": "All",
-    "emptyTitle": "No products found",
-    "emptyDescription": "Try adjusting your filters or search terms"
+    "emptyTitle": "No fragrances match",
+    "emptyDescription": "Try another filter or browse the full collection"
   },
   "about": {
     "title": "About FragranceHub",
-    "subtitle": "Your trusted destination for luxury fragrances and premium perfumes",
+    "subtitle": "A quiet place to find the fragrance that feels like yours",
     "storyTitle": "Our Story",
     "storyParagraph1": "FragranceHub was born from a passion for luxury fragrances and the belief that everyone deserves to find their signature scent. Founded in 2024, we set out to create a curated collection of the world's finest perfumes, making premium fragrances accessible to fragrance enthusiasts everywhere.",
     "storyParagraph2": "We carefully select each product in our collection, working directly with renowned brands to ensure authenticity and quality. Our team of fragrance experts tests and reviews every scent to provide you with detailed information and honest recommendations.",
@@ -98,6 +98,22 @@
     "registerError": "Failed to create account. Please try again.",
     "registering": "Creating account...",
     "forgotPassword": "Forgot password?",
+    "forgotTitle": "Reset your password",
+    "forgotSubtitle": "Enter your email and we will send a reset link if an account exists.",
+    "forgotButton": "Send reset link",
+    "forgotSending": "Sending...",
+    "forgotSuccess": "If an account exists for that email, we sent a reset link.",
+    "forgotError": "Could not send a reset link. Please try again.",
+    "resetTitle": "Choose a new password",
+    "resetSubtitle": "Enter a new password for your account.",
+    "resetButton": "Update password",
+    "resetSaving": "Updating...",
+    "resetSuccess": "Password updated. You can sign in now.",
+    "resetError": "This reset link is invalid or has expired.",
+    "resetMissingToken": "This reset link is missing a token. Request a new one.",
+    "resetPasswordMin": "Password must be at least 8 characters",
+    "newPassword": "New password",
+    "backToLogin": "Back to log in",
     "noAccount": "Don't have an account?",
     "haveAccount": "Already have an account?",
     "registerLink": "Register",

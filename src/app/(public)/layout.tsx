@@ -26,7 +26,7 @@ export default async function PublicLayout({
     redirect("/");
   }
   return (
-    <div className="min-h-screen">
+    <div className="storefront min-h-screen">
       <Navigation />
       <main>{children}</main>
       <Footer />

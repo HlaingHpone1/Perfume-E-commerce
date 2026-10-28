@@ -1,12 +1,13 @@
 import { prisma } from "@/config/auth";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Search } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Prisma, AttachmentRecordType } from "@/generated/prisma/client";
-import Image from "next/image";
 import CustomPagination from "@/components/custom-pagination";
+import { ProductCard } from "@/components/product-card";
 import { Metadata } from "next";
+import { cn } from "@/utils";
+import { resolvePublicImage } from "@/utils/resolve-public-image";
 
 export const metadata: Metadata = {
   title: "Products - FragranceHub",
@@ -25,22 +26,17 @@ export default async function ProductsPage({
 }) {
   const t = await getTranslations();
 
-  // 1. Parse Search Params
   const params = await searchParams;
   const { category, search } = params || {};
   const page = Number(params?.page) || 1;
   const limit = Number(params?.limit) || 10;
   const skip = (page - 1) * limit;
 
-  // 2. Build Filter Conditions
   const where: Prisma.ProductWhereInput = {};
 
   if (category) {
     where.category = {
-      OR: [
-        { slug: category }, // Direct match
-        { parentCategory: { slug: category } }, // Match parent (e.g. "Men's Fragrances")
-      ],
+      OR: [{ slug: category }, { parentCategory: { slug: category } }],
     };
   }
 
@@ -52,7 +48,6 @@ export default async function ProductsPage({
     ];
   }
 
-  // 3. Fetch Products & Total Count (Transaction for performance)
   const [products, totalCount] = await prisma.$transaction([
     prisma.product.findMany({
       where,
@@ -73,7 +68,6 @@ export default async function ProductsPage({
 
   const totalPages = Math.ceil(totalCount / limit);
 
-  // 4. Fetch Images for these Products
   const productIds = products.map((p) => p.id);
   const attachments = await prisma.attachment.findMany({
     where: {
@@ -82,16 +76,14 @@ export default async function ProductsPage({
     },
   });
 
-  // Merge images into products
   const productsWithImages = products.map((product) => {
     const image = attachments.find((a) => a.recordId === product.id);
     return {
       ...product,
-      imageUrl: image ? image.fileUrl : null,
+      imageUrl: resolvePublicImage(image?.fileUrl),
     };
   });
 
-  // 5. Fetch Categories for Filters
   const categories = await prisma.category.findMany({
     where: { parentCategoryId: null },
     include: {
@@ -105,122 +97,91 @@ export default async function ProductsPage({
   });
 
   return (
-    <div className="bg-background min-h-screen">
-      <div className="container mx-auto px-4 py-8 md:py-12">
-        <div className="mb-8">
-          <h1 className="mb-4 text-4xl font-bold">
+    <div className="min-h-screen">
+      <div className="mx-auto max-w-6xl px-6 py-12 lg:px-8 lg:py-16">
+        <div className="mb-12 max-w-2xl">
+          <h1 className="font-display text-foreground text-4xl tracking-tight md:text-5xl">
             {t("page.products.title")}
           </h1>
-          <p className="text-muted-foreground">{t("page.products.subtitle")}</p>
+          <p className="text-muted-foreground mt-3 text-base leading-relaxed">
+            {t("page.products.subtitle")}
+          </p>
         </div>
 
-        {/* Filter Buttons */}
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={!category ? "default" : "outline"}
-              size="sm"
-              asChild
-            >
-              <Link href="/products">{t("page.products.filterAll")}</Link>
-            </Button>
-            {categories.map((cat) => {
-              const subCategoryCount = cat.subCategories.reduce(
-                (acc, sub) => acc + sub._count.products,
-                0,
-              );
-              const totalCatCount = cat._count.products + subCategoryCount;
+        <div className="mb-12 flex flex-wrap gap-x-1 gap-y-2 border-b border-[var(--border)] pb-4">
+          <Link
+            href="/products"
+            className={cn(
+              "px-3 py-2 text-[0.65rem] tracking-[0.18em] uppercase transition-colors",
+              !category
+                ? "text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t("page.products.filterAll")}
+          </Link>
+          {categories.map((cat) => {
+            const subCategoryCount = cat.subCategories.reduce(
+              (acc, sub) => acc + sub._count.products,
+              0,
+            );
+            const totalCatCount = cat._count.products + subCategoryCount;
 
-              return (
-                <Button
-                  key={cat.id}
-                  variant={category === cat.slug ? "default" : "outline"}
-                  size="sm"
-                  asChild
-                >
-                  <Link href={`/products?category=${cat.slug}`}>
-                    {cat.name} ({totalCatCount})
-                  </Link>
-                </Button>
-              );
-            })}
-          </div>
+            return (
+              <Link
+                key={cat.id}
+                href={`/products?category=${cat.slug}`}
+                className={cn(
+                  "px-3 py-2 text-[0.65rem] tracking-[0.18em] uppercase transition-colors",
+                  category === cat.slug
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {cat.name}
+                <span className="text-muted-foreground ml-1.5">
+                  {totalCatCount}
+                </span>
+              </Link>
+            );
+          })}
         </div>
 
-        {/* Product Grid */}
         {productsWithImages.length > 0 ? (
           <>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {productsWithImages.map((product) => {
                 const variant = product.variants[0];
                 return (
-                  <Link
+                  <ProductCard
                     key={product.id}
-                    href={`/products/${product.id}`}
-                    className="group bg-card rounded-lg border p-6 transition-all hover:shadow-lg"
-                  >
-                    <div className="relative mb-4 aspect-square w-full overflow-hidden rounded-lg bg-gray-100">
-                      {product.imageUrl ? (
-                        <Image
-                          src={product.imageUrl}
-                          alt={product.name}
-                          fill
-                          className="object-cover object-center transition-transform duration-300 group-hover:scale-105"
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-100 to-pink-100">
-                          <span className="text-4xl">🌸</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-muted-foreground text-sm font-medium">
-                        {product.brand.name}
-                      </p>
-                      <h3 className="group-hover:text-primary text-xl font-semibold transition-colors">
-                        {product.name}
-                      </h3>
-                      {product.scentFamily && (
-                        <p className="text-muted-foreground text-sm">
-                          {product.scentFamily}
-                        </p>
-                      )}
-                      {variant && (
-                        <div className="flex items-center justify-between pt-2">
-                          <p className="text-primary text-lg font-bold">
-                            ${variant.price.toFixed(2)}
-                          </p>
-                          {variant.stockLevel > 0 ? (
-                            <span className="text-xs font-medium text-green-600 dark:text-green-400">
-                              In Stock
-                            </span>
-                          ) : (
-                            <span className="text-xs font-medium text-red-600 dark:text-red-400">
-                              Out of Stock
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </Link>
+                    id={product.id}
+                    name={product.name}
+                    brandName={product.brand.name}
+                    imageUrl={product.imageUrl}
+                    price={variant?.price}
+                    scentFamily={product.scentFamily}
+                    inStock={variant ? variant.stockLevel > 0 : null}
+                  />
                 );
               })}
             </div>
 
-            {/* Pagination Component */}
             <CustomPagination totalPages={totalPages} />
           </>
         ) : (
-          <div className="py-12 text-center">
-            <Search className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
-            <h3 className="mb-2 text-xl font-semibold">
+          <div className="py-24 text-center">
+            <h3 className="font-display text-foreground text-2xl tracking-tight">
               {t("page.products.emptyTitle")}
             </h3>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground mt-3 text-sm">
               {t("page.products.emptyDescription")}
             </p>
-            <Button variant="outline" className="mt-4" asChild>
+            <Button
+              variant="outline"
+              className="mt-8 rounded-none text-[0.65rem] tracking-[0.18em] uppercase"
+              asChild
+            >
               <Link href="/products">{t("cta.viewAllProducts")}</Link>
             </Button>
           </div>

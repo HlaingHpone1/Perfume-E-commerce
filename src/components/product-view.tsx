@@ -5,13 +5,12 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
-import { ShoppingBag, Check, Info, Loader2 } from "lucide-react";
+import { ShoppingBag, Check, Loader2 } from "lucide-react";
 import { useSession } from "@/config/auth-client";
 import { useCartStore } from "@/stores/useCartStore";
 import { toast } from "sonner";
 import { Product, Brand, ProductVariant } from "@/generated/prisma/client";
 
-// --- Types (Same as before) ---
 interface ProductSpecs {
   topNotes?: string[];
   middleNotes?: string[];
@@ -32,7 +31,6 @@ type AttachmentData = {
   recordType: "Product" | "ProductVariant";
 };
 
-// --- Sub-Component: Image Gallery (Same as before) ---
 function ImageGallery({
   images,
   productName,
@@ -46,7 +44,7 @@ function ImageGallery({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="relative aspect-square w-full overflow-hidden rounded-xl border bg-gray-50">
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-[var(--storefront-mist)]">
         {activeImage ? (
           <Image
             src={activeImage}
@@ -56,27 +54,29 @@ function ImageGallery({
             priority
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-gray-300">
-            <span className="text-6xl">🌸</span>
+          <div className="flex h-full items-center justify-center">
+            <span className="font-display text-muted-foreground/40 text-sm tracking-[0.2em] uppercase">
+              FragranceHub
+            </span>
           </div>
         )}
       </div>
       {images.length > 1 && (
-        <div className="flex gap-4 overflow-x-auto pb-2">
+        <div className="flex gap-3 overflow-x-auto pb-1">
           {images.map((img, idx) => (
             <button
               key={`${img.recordId}-${idx}`}
               onClick={() => setActiveImage(img.fileUrl)}
               className={cn(
-                "relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border-2",
+                "relative h-20 w-16 flex-shrink-0 overflow-hidden border transition-colors",
                 activeImage === img.fileUrl
-                  ? "border-primary"
-                  : "border-transparent hover:border-gray-200",
+                  ? "border-[var(--foreground)]"
+                  : "border-transparent opacity-70 hover:opacity-100",
               )}
             >
               <Image
                 src={img.fileUrl}
-                alt="Thumbnail"
+                alt={`${productName} view ${idx + 1}`}
                 fill
                 className="object-cover"
               />
@@ -88,7 +88,6 @@ function ImageGallery({
   );
 }
 
-// --- Main Component ---
 export function ProductView({
   product,
   attachments,
@@ -97,9 +96,8 @@ export function ProductView({
   attachments: AttachmentData[];
 }) {
   const router = useRouter();
-  const { data: session, isPending: isAuthPending } = useSession(); // Auth check
-
-  const addItem = useCartStore((state) => state.addItem); // Zustand action
+  const { data: session, isPending: isAuthPending } = useSession();
+  const addItem = useCartStore((state) => state.addItem);
 
   const [selectedVariantId, setSelectedVariantId] = useState<string>(
     product.variants[0]?.id,
@@ -120,19 +118,15 @@ export function ProductView({
     return [...variantImages, ...globalImages];
   }, [attachments, product.id, selectedVariantId]);
 
-  // Handler for Add to Cart
   const handleAddToCart = () => {
-    // 1. Check Authentication
     if (!session) {
       toast.error("Please log in to add items to your cart");
-      // Redirect to login with return URL
       router.push(`/login?callbackUrl=/products/${product.id}`);
       return;
     }
 
     if (!selectedVariant) return;
 
-    // 2. Add to Store
     addItem({
       variantId: selectedVariant.id,
       productId: product.id,
@@ -149,74 +143,66 @@ export function ProductView({
 
   if (!selectedVariant) return <div>Variant not found</div>;
 
-  // Cast specs (Same as before)
   const specs =
     selectedVariant.specifications as unknown as ProductSpecs | null;
 
   return (
-    <div className="grid grid-cols-1 gap-x-8 gap-y-10 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-x-12 gap-y-12 lg:grid-cols-2">
       <ImageGallery
         key={selectedVariantId}
         images={displayImages}
         productName={product.name}
       />
 
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-8 lg:pt-4">
         <div>
-          <h2 className="text-muted-foreground text-lg font-medium">
+          <p className="text-muted-foreground text-[0.7rem] tracking-[0.2em] uppercase">
             {product.brand.name}
-          </h2>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+          </p>
+          <h1 className="font-display text-foreground mt-2 text-4xl tracking-tight sm:text-5xl">
             {product.name}
           </h1>
-          <div className="mt-2 flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-500">
+          {product.scentFamily ? (
+            <p className="text-muted-foreground mt-3 text-sm">
               {product.scentFamily}
-            </span>
-          </div>
+            </p>
+          ) : null}
         </div>
 
-        <div className="flex items-end gap-4">
-          <p className="text-primary text-3xl font-bold tracking-tight">
+        <div className="flex items-baseline gap-4">
+          <p className="text-foreground text-2xl tracking-wide">
             ${selectedVariant.price.toFixed(2)}
           </p>
-          <div className="text-muted-foreground mb-1 text-sm">
-            {/* Stock logic same as before */}
-            Stock:{" "}
-            {selectedVariant.stockLevel > 0 ? (
-              <span className="text-green-600">
-                {selectedVariant.stockLevel} Available
-              </span>
-            ) : (
-              <span className="text-red-600">Out of Stock</span>
-            )}
-          </div>
+          <p className="text-muted-foreground text-sm">
+            {selectedVariant.stockLevel > 0
+              ? `${selectedVariant.stockLevel} available`
+              : "Out of stock"}
+          </p>
         </div>
 
-        {/* Variant Selector */}
         <div className="space-y-3">
-          {/* Same variant selector code as before */}
+          <p className="text-foreground text-[0.65rem] tracking-[0.18em] uppercase">
+            Size
+          </p>
           <div className="flex flex-wrap gap-3">
             {product.variants.map((variant) => (
               <button
                 key={variant.id}
                 onClick={() => setSelectedVariantId(variant.id)}
                 className={cn(
-                  "focus:border-primary relative flex cursor-pointer flex-col items-start rounded-lg border p-3 text-sm shadow-sm transition-all outline-none hover:border-gray-400",
+                  "relative flex min-w-[5.5rem] cursor-pointer flex-col items-start border px-4 py-3 text-left text-sm transition-colors outline-none",
                   selectedVariantId === variant.id
-                    ? "border-primary bg-primary/5 ring-primary ring-1"
-                    : "border-gray-200 bg-white",
+                    ? "border-[var(--foreground)] bg-[var(--secondary)]"
+                    : "border-[var(--border)] hover:border-[var(--foreground)]/40",
                 )}
               >
-                <div className="flex w-full justify-between gap-2">
-                  <span className="font-semibold text-gray-900">
-                    {variant.volumeMl}ml
-                  </span>
+                <div className="flex w-full items-center justify-between gap-2">
+                  <span className="font-medium">{variant.volumeMl}ml</span>
                   {selectedVariantId === variant.id && (
-                    <Check className="text-primary h-4 w-4" />
+                    <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
                   )}
                 </div>
-                <span className="text-muted-foreground text-xs">
+                <span className="text-muted-foreground mt-1 text-xs">
                   {variant.concentration}
                 </span>
               </button>
@@ -224,35 +210,71 @@ export function ProductView({
           </div>
         </div>
 
-        <div className="h-px bg-gray-200" />
+        <div className="h-px bg-[var(--border)]" />
 
-        <div className="flex gap-4">
-          <Button
-            size="lg"
-            className="w-full flex-1"
-            disabled={selectedVariant.stockLevel <= 0 || isAuthPending}
-            onClick={handleAddToCart}
-          >
-            {isAuthPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <ShoppingBag className="mr-2 h-4 w-4" />
-            )}
-            {selectedVariant.stockLevel > 0 ? "Add to Cart" : "Out of Stock"}
-          </Button>
-        </div>
+        <Button
+          size="lg"
+          className="w-full rounded-none text-[0.7rem] tracking-[0.2em] uppercase"
+          disabled={selectedVariant.stockLevel <= 0 || isAuthPending}
+          onClick={handleAddToCart}
+        >
+          {isAuthPending ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <ShoppingBag className="mr-2 h-4 w-4" strokeWidth={1.5} />
+          )}
+          {selectedVariant.stockLevel > 0 ? "Add to Cart" : "Out of Stock"}
+        </Button>
 
-        {/* Description & Notes (Same as before) */}
-        <div className="space-y-4 pt-4">
-          <div className="rounded-lg bg-gray-50 p-4">
-            <h3 className="mb-2 flex items-center gap-2 font-semibold">
-              <Info className="h-4 w-4" /> Description
-            </h3>
-            <p className="text-sm leading-relaxed text-gray-600">
-              {product.description}
-            </p>
-          </div>
-          {/* Specs Grid... */}
+        <div className="space-y-6 pt-2">
+          {product.description ? (
+            <div>
+              <h3 className="text-foreground mb-3 text-[0.65rem] tracking-[0.18em] uppercase">
+                Description
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {product.description}
+              </p>
+            </div>
+          ) : null}
+
+          {specs &&
+          (specs.topNotes?.length ||
+            specs.middleNotes?.length ||
+            specs.baseNotes?.length) ? (
+            <div className="grid gap-4 sm:grid-cols-3">
+              {specs.topNotes?.length ? (
+                <div>
+                  <p className="text-foreground text-[0.65rem] tracking-[0.18em] uppercase">
+                    Top
+                  </p>
+                  <p className="text-muted-foreground mt-2 text-sm">
+                    {specs.topNotes.join(", ")}
+                  </p>
+                </div>
+              ) : null}
+              {specs.middleNotes?.length ? (
+                <div>
+                  <p className="text-foreground text-[0.65rem] tracking-[0.18em] uppercase">
+                    Heart
+                  </p>
+                  <p className="text-muted-foreground mt-2 text-sm">
+                    {specs.middleNotes.join(", ")}
+                  </p>
+                </div>
+              ) : null}
+              {specs.baseNotes?.length ? (
+                <div>
+                  <p className="text-foreground text-[0.65rem] tracking-[0.18em] uppercase">
+                    Base
+                  </p>
+                  <p className="text-muted-foreground mt-2 text-sm">
+                    {specs.baseNotes.join(", ")}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

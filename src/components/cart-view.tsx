@@ -34,7 +34,6 @@ import {
 import { placeOrder } from "@/templates/order/action";
 import { cn } from "@/utils";
 
-// --- Validation Schema ---
 const shippingSchema = z.object({
   recipientName: z.string().min(2, "Name is required"),
   phone: z.string().min(6, "Valid phone number is required"),
@@ -55,8 +54,6 @@ export function CartView() {
     useCartStore();
   const [isMounted, setIsMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // 1. Payment State
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "Stripe">("COD");
 
   useEffect(() => {
@@ -93,16 +90,13 @@ export function CartView() {
 
     setIsSubmitting(true);
     try {
-      // 2. Prepare Payload with Payment Info
       const orderInput = {
         items: items.map((item) => ({
           variantId: item.variantId,
           quantity: item.quantity,
         })),
         shippingAddress: data,
-        paymentGateway: paymentMethod, // "COD" or "Stripe"
-        // In a real app, if Stripe, you'd process payment client-side first
-        // and pass the resulting ID here. For now, we simulate it if not COD.
+        paymentGateway: paymentMethod,
         transactionId:
           paymentMethod === "Stripe" ? `simulated_tx_${Date.now()}` : undefined,
       };
@@ -129,14 +123,19 @@ export function CartView() {
 
   if (items.length === 0) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center space-y-4 text-center">
-        <div className="rounded-full bg-gray-100 p-6">
-          <ShoppingBag className="h-12 w-12 text-gray-400" />
-        </div>
-        <h2 className="text-2xl font-bold tracking-tight">
+      <div className="flex min-h-[55vh] flex-col items-center justify-center text-center">
+        <ShoppingBag
+          className="text-muted-foreground mb-6 h-10 w-10"
+          strokeWidth={1.25}
+        />
+        <h2 className="font-display text-foreground text-3xl tracking-tight">
           Your cart is empty
         </h2>
-        <Button asChild size="lg" className="mt-4">
+        <Button
+          asChild
+          size="lg"
+          className="mt-8 rounded-none px-8 text-[0.7rem] tracking-[0.2em] uppercase"
+        >
           <Link href="/products">Start Shopping</Link>
         </Button>
       </div>
@@ -144,18 +143,24 @@ export function CartView() {
   }
 
   return (
-    <div className="grid gap-12 lg:grid-cols-12">
-      {/* LEFT COLUMN: Cart Items */}
+    <div className="grid gap-14 lg:grid-cols-12">
       <div className="lg:col-span-7">
-        <div className="flex items-center justify-between border-b pb-4">
-          <h2 className="text-2xl font-bold tracking-tight">Shopping Cart</h2>
-          <span className="text-muted-foreground">{getCartCount()} items</span>
+        <div className="flex items-end justify-between border-b border-[var(--border)] pb-5">
+          <h2 className="font-display text-foreground text-3xl tracking-tight">
+            Shopping Cart
+          </h2>
+          <span className="text-muted-foreground text-sm">
+            {getCartCount()} items
+          </span>
         </div>
 
         <div className="mt-8 space-y-8">
           {items.map((item) => (
-            <div key={item.variantId} className="flex gap-4 sm:gap-6">
-              <div className="relative aspect-square h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border bg-gray-100">
+            <div
+              key={item.variantId}
+              className="flex gap-4 border-b border-[var(--border)] pb-8 sm:gap-6"
+            >
+              <div className="relative aspect-[3/4] h-28 w-20 flex-shrink-0 overflow-hidden bg-[var(--storefront-mist)] sm:h-32 sm:w-24">
                 {item.image ? (
                   <Image
                     src={item.image}
@@ -165,52 +170,56 @@ export function CartView() {
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
-                    <span className="text-xl">🌸</span>
+                    <span className="font-display text-muted-foreground/40 text-[0.55rem] tracking-[0.15em] uppercase">
+                      FH
+                    </span>
                   </div>
                 )}
               </div>
 
               <div className="flex flex-1 flex-col justify-between">
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-4">
                   <div>
-                    <h3 className="line-clamp-2 font-semibold text-gray-900">
+                    <h3 className="font-display text-foreground text-lg leading-snug">
                       <Link
                         href={`/products/${item.productId}`}
-                        className="hover:underline"
+                        className="hover:opacity-70"
                       >
                         {item.name}
                       </Link>
                     </h3>
-                    <div className="text-muted-foreground mt-1 flex items-center gap-2 text-sm">
+                    <div className="text-muted-foreground mt-1 flex items-center gap-2 text-xs tracking-wide">
                       <span>{item.size}</span>
-                      <span>•</span>
+                      <span>·</span>
                       <span>{item.concentration}</span>
                     </div>
                   </div>
-                  <p className="font-bold text-gray-900">
+                  <p className="text-foreground text-sm font-medium whitespace-nowrap">
                     ${(item.price * item.quantity).toFixed(2)}
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 rounded-lg border bg-white p-1">
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3 border border-[var(--border)] px-2 py-1">
                     <button
                       onClick={() =>
                         updateQuantity(item.variantId, item.quantity - 1)
                       }
-                      className="rounded-md p-1 hover:bg-gray-100 disabled:opacity-50"
+                      className="p-1 opacity-70 hover:opacity-100 disabled:opacity-30"
                       disabled={item.quantity <= 1}
+                      aria-label="Decrease quantity"
                     >
                       <Minus className="h-3 w-3" />
                     </button>
-                    <span className="min-w-[1.5rem] text-center text-sm font-medium">
+                    <span className="min-w-[1.5rem] text-center text-sm">
                       {item.quantity}
                     </span>
                     <button
                       onClick={() =>
                         updateQuantity(item.variantId, item.quantity + 1)
                       }
-                      className="rounded-md p-1 hover:bg-gray-100"
+                      className="p-1 opacity-70 hover:opacity-100"
+                      aria-label="Increase quantity"
                     >
                       <Plus className="h-3 w-3" />
                     </button>
@@ -218,9 +227,9 @@ export function CartView() {
 
                   <button
                     onClick={() => removeItem(item.variantId)}
-                    className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700 hover:underline"
+                    className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-xs tracking-wide transition-colors"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
                     <span className="hidden sm:inline">Remove</span>
                   </button>
                 </div>
@@ -230,57 +239,60 @@ export function CartView() {
         </div>
       </div>
 
-      {/* RIGHT COLUMN: Shipping & Payment */}
       <div className="lg:col-span-5">
-        <div className="rounded-xl border bg-gray-50/50 p-6 shadow-sm">
-          {/* 3. Payment Method Section */}
+        <div className="border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8">
           <div className="mb-8">
-            <h3 className="mb-4 text-lg font-semibold">Payment Method</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div
+            <h3 className="text-foreground mb-4 text-[0.65rem] tracking-[0.18em] uppercase">
+              Payment Method
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
                 onClick={() => setPaymentMethod("COD")}
                 className={cn(
-                  "cursor-pointer rounded-lg border p-4 text-center transition-all hover:bg-gray-50",
+                  "cursor-pointer border p-4 text-left transition-colors",
                   paymentMethod === "COD"
-                    ? "border-black bg-white ring-1 ring-black"
-                    : "bg-white",
+                    ? "border-[var(--foreground)] bg-[var(--secondary)]"
+                    : "border-[var(--border)] hover:border-[var(--foreground)]/40",
                 )}
               >
-                <div className="mb-2 flex justify-center">
-                  <Banknote className="h-6 w-6" />
-                </div>
-                <div className="font-medium">Cash on Delivery</div>
-              </div>
+                <Banknote className="mb-2 h-5 w-5" strokeWidth={1.5} />
+                <div className="text-sm font-medium">Cash on Delivery</div>
+              </button>
 
-              <div
+              <button
+                type="button"
                 onClick={() => setPaymentMethod("Stripe")}
                 className={cn(
-                  "cursor-pointer rounded-lg border p-4 text-center transition-all hover:bg-gray-50",
+                  "cursor-pointer border p-4 text-left transition-colors",
                   paymentMethod === "Stripe"
-                    ? "border-black bg-white ring-1 ring-black"
-                    : "bg-white",
+                    ? "border-[var(--foreground)] bg-[var(--secondary)]"
+                    : "border-[var(--border)] hover:border-[var(--foreground)]/40",
                 )}
               >
-                <div className="mb-2 flex justify-center">
-                  <CreditCard className="h-6 w-6" />
-                </div>
-                <div className="font-medium">Credit Card</div>
-              </div>
+                <CreditCard className="mb-2 h-5 w-5" strokeWidth={1.5} />
+                <div className="text-sm font-medium">Credit Card</div>
+              </button>
             </div>
           </div>
 
           <Separator className="my-6" />
 
-          {/* Shipping Form */}
           <div className="mb-8">
-            <h3 className="mb-4 text-lg font-semibold">Shipping Address</h3>
+            <h3 className="text-foreground mb-4 text-[0.65rem] tracking-[0.18em] uppercase">
+              Shipping Address
+            </h3>
 
             {!session && !isAuthPending ? (
-              <div className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center">
+              <div className="border border-dashed border-[var(--border)] p-6 text-center">
                 <p className="text-muted-foreground mb-4 text-sm">
                   Please log in to checkout.
                 </p>
-                <Button asChild variant="outline" className="w-full">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full rounded-none text-[0.65rem] tracking-[0.18em] uppercase"
+                >
                   <Link href="/login?callbackUrl=/cart">Log In</Link>
                 </Button>
               </div>
@@ -298,7 +310,11 @@ export function CartView() {
                       <FormItem>
                         <FormLabel>Full Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="John Doe" {...field} />
+                          <Input
+                            className="rounded-none"
+                            placeholder="John Doe"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -313,7 +329,11 @@ export function CartView() {
                         <FormItem>
                           <FormLabel>Phone</FormLabel>
                           <FormControl>
-                            <Input placeholder="+1 234..." {...field} />
+                            <Input
+                              className="rounded-none"
+                              placeholder="+1 234..."
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -326,7 +346,11 @@ export function CartView() {
                         <FormItem>
                           <FormLabel>Country</FormLabel>
                           <FormControl>
-                            <Input placeholder="USA" {...field} />
+                            <Input
+                              className="rounded-none"
+                              placeholder="USA"
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -341,7 +365,11 @@ export function CartView() {
                       <FormItem>
                         <FormLabel>Address</FormLabel>
                         <FormControl>
-                          <Input placeholder="123 Main St" {...field} />
+                          <Input
+                            className="rounded-none"
+                            placeholder="123 Main St"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -356,7 +384,11 @@ export function CartView() {
                         <FormItem>
                           <FormLabel>City</FormLabel>
                           <FormControl>
-                            <Input placeholder="New York" {...field} />
+                            <Input
+                              className="rounded-none"
+                              placeholder="New York"
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -369,7 +401,11 @@ export function CartView() {
                         <FormItem>
                           <FormLabel>Zip Code</FormLabel>
                           <FormControl>
-                            <Input placeholder="10001" {...field} />
+                            <Input
+                              className="rounded-none"
+                              placeholder="10001"
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -384,7 +420,11 @@ export function CartView() {
                       <FormItem>
                         <FormLabel>State/Province</FormLabel>
                         <FormControl>
-                          <Input placeholder="NY" {...field} />
+                          <Input
+                            className="rounded-none"
+                            placeholder="NY"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -397,8 +437,9 @@ export function CartView() {
 
           <Separator className="my-6" />
 
-          {/* Order Summary */}
-          <h3 className="mb-4 text-lg font-semibold">Order Summary</h3>
+          <h3 className="text-foreground mb-4 text-[0.65rem] tracking-[0.18em] uppercase">
+            Order Summary
+          </h3>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Subtotal</span>
@@ -407,14 +448,10 @@ export function CartView() {
             <div className="flex justify-between">
               <span className="text-muted-foreground">Shipping</span>
               <span>
-                {shippingCost === 0 ? (
-                  <span className="font-medium text-green-600">Free</span>
-                ) : (
-                  `$${shippingCost.toFixed(2)}`
-                )}
+                {shippingCost === 0 ? "Free" : `$${shippingCost.toFixed(2)}`}
               </span>
             </div>
-            <div className="flex justify-between border-t pt-3 text-lg font-bold">
+            <div className="flex justify-between border-t border-[var(--border)] pt-3 text-base font-medium">
               <span>Total</span>
               <span>${total.toFixed(2)}</span>
             </div>
@@ -423,7 +460,7 @@ export function CartView() {
           <Button
             type="submit"
             form="checkout-form"
-            className="mt-8 w-full"
+            className="mt-8 w-full rounded-none text-[0.7rem] tracking-[0.2em] uppercase"
             size="lg"
             disabled={!session || isSubmitting}
           >
@@ -435,7 +472,7 @@ export function CartView() {
             ) : (
               <>
                 Pay with {paymentMethod === "COD" ? "Cash" : "Card"}{" "}
-                <ArrowRight className="ml-2 h-4 w-4" />
+                <ArrowRight className="ml-2 h-4 w-4" strokeWidth={1.5} />
               </>
             )}
           </Button>

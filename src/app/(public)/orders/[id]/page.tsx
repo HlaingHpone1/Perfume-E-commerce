@@ -4,7 +4,6 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { format } from "date-fns";
-import { ChevronLeft, MapPin, Package, CreditCard, Truck } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { AttachmentRecordType } from "@/generated/prisma/client";
@@ -34,7 +33,6 @@ export default async function OrderDetailPage({
     redirect(`/login?callbackUrl=/orders/${id}`);
   }
 
-  // Fetch Order with relations
   const order = await prisma.order.findUnique({
     where: { id },
     include: {
@@ -53,12 +51,10 @@ export default async function OrderDetailPage({
     },
   });
 
-  // Security: Ensure order exists and belongs to current user
   if (!order || order.userId !== session.user.id) {
     notFound();
   }
 
-  // Fetch Images for items
   const variantIds = order.items.map((i) => i.variantId);
   const productIds = order.items.map((i) => i.variant.productId);
 
@@ -71,42 +67,42 @@ export default async function OrderDetailPage({
     },
   });
 
+  const itemsSubtotal = order.items.reduce(
+    (acc, i) => acc + i.unitPrice * i.quantity,
+    0,
+  );
+
   return (
-    <div className="min-h-screen bg-gray-50/50 py-10">
-      <div className="container mx-auto max-w-4xl px-4">
-        {/* Header */}
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-h-screen py-12 lg:py-16">
+      <div className="mx-auto max-w-4xl px-6 lg:px-8">
+        <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="flex items-center gap-2">
-              <Link
-                href="/orders"
-                className="text-muted-foreground hover:text-primary"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Link>
-              <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-                Order {order.orderCode}
-              </h1>
-            </div>
-            <p className="text-muted-foreground mt-1 pl-7 text-sm">
+            <Link
+              href="/orders"
+              className="text-muted-foreground hover:text-foreground text-xs tracking-[0.16em] uppercase transition-colors"
+            >
+              ← Back to orders
+            </Link>
+            <h1 className="font-display text-foreground mt-3 text-3xl tracking-tight md:text-4xl">
+              Order {order.orderCode}
+            </h1>
+            <p className="text-muted-foreground mt-2 text-sm">
               Placed on {format(order.createdAt, "MMMM d, yyyy 'at' h:mm a")}
             </p>
           </div>
-          <StatusBadge status={order.status} size="lg" />
+          <StatusBadge status={order.status} />
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          {/* Main Content (Items) */}
-          <div className="space-y-6 md:col-span-2">
-            <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
-              <div className="border-b bg-gray-50/50 px-6 py-4">
-                <h2 className="flex items-center gap-2 font-semibold">
-                  <Package className="h-4 w-4" /> Order Items
+        <div className="grid gap-8 md:grid-cols-3">
+          <div className="md:col-span-2">
+            <div className="border border-[var(--border)] bg-[var(--card)]">
+              <div className="border-b border-[var(--border)] px-6 py-4">
+                <h2 className="text-foreground text-[0.65rem] tracking-[0.18em] uppercase">
+                  Order Items
                 </h2>
               </div>
-              <div className="divide-y p-6">
+              <div className="divide-y divide-[var(--border)] px-6">
                 {order.items.map((item) => {
-                  // Find image: Try variant image first, then product image
                   const img =
                     attachments.find((a) => a.recordId === item.variantId) ||
                     attachments.find(
@@ -114,11 +110,8 @@ export default async function OrderDetailPage({
                     );
 
                   return (
-                    <div
-                      key={item.id}
-                      className="flex gap-4 py-4 first:pt-0 last:pb-0"
-                    >
-                      <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border bg-gray-100">
+                    <div key={item.id} className="flex gap-4 py-5">
+                      <div className="relative h-24 w-[4.5rem] flex-shrink-0 overflow-hidden bg-[var(--storefront-mist)]">
                         {img ? (
                           <Image
                             src={img.fileUrl}
@@ -127,26 +120,28 @@ export default async function OrderDetailPage({
                             className="object-cover"
                           />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-2xl">
-                            🌸
+                          <div className="flex h-full w-full items-center justify-center">
+                            <span className="font-display text-muted-foreground/40 text-[0.55rem] tracking-[0.15em] uppercase">
+                              FH
+                            </span>
                           </div>
                         )}
                       </div>
                       <div className="flex flex-1 flex-col justify-between">
                         <div>
-                          <h3 className="font-medium text-gray-900">
+                          <h3 className="font-display text-foreground text-lg leading-snug">
                             {item.variant.product.name}
                           </h3>
-                          <p className="text-muted-foreground text-sm">
+                          <p className="text-muted-foreground mt-1 text-sm">
                             {item.variant.name} ({item.variant.volumeMl}ml)
                           </p>
-                          <p className="text-muted-foreground text-xs">
+                          <p className="text-muted-foreground text-xs tracking-wide uppercase">
                             {item.variant.product.brand.name}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">
+                        <p className="text-sm font-medium">
                           ${item.unitPrice.toFixed(2)}
                         </p>
                         <p className="text-muted-foreground text-sm">
@@ -160,48 +155,39 @@ export default async function OrderDetailPage({
             </div>
           </div>
 
-          {/* Sidebar (Details) */}
           <div className="space-y-6">
-            {/* Order Summary */}
-            <div className="rounded-xl border bg-white p-6 shadow-sm">
-              <h3 className="mb-4 flex items-center gap-2 font-semibold">
-                <CreditCard className="h-4 w-4" /> Summary
+            <div className="border border-[var(--border)] bg-[var(--card)] p-6">
+              <h3 className="text-foreground mb-4 text-[0.65rem] tracking-[0.18em] uppercase">
+                Summary
               </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
-                  {/* Calculating subtotal manually from items since we only stored totalAmount */}
-                  <span>
-                    $
-                    {order.items
-                      .reduce((acc, i) => acc + i.unitPrice * i.quantity, 0)
-                      .toFixed(2)}
-                  </span>
+                  <span>${itemsSubtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Shipping</span>
                   <span>
                     {order.totalAmount > 150
                       ? "Free"
-                      : `$${(order.totalAmount - order.items.reduce((acc, i) => acc + i.unitPrice * i.quantity, 0)).toFixed(2)}`}
+                      : `$${(order.totalAmount - itemsSubtotal).toFixed(2)}`}
                   </span>
                 </div>
                 <Separator className="my-2" />
-                <div className="flex justify-between text-lg font-bold">
+                <div className="flex justify-between text-base font-medium">
                   <span>Total</span>
                   <span>${order.totalAmount.toFixed(2)}</span>
                 </div>
               </div>
             </div>
 
-            {/* Shipping Details */}
             {order.shippingAddress && (
-              <div className="rounded-xl border bg-white p-6 shadow-sm">
-                <h3 className="mb-4 flex items-center gap-2 font-semibold">
-                  <Truck className="h-4 w-4" /> Shipping Details
+              <div className="border border-[var(--border)] bg-[var(--card)] p-6">
+                <h3 className="text-foreground mb-4 text-[0.65rem] tracking-[0.18em] uppercase">
+                  Shipping
                 </h3>
-                <div className="space-y-1 text-sm text-gray-600">
-                  <p className="font-medium text-gray-900">
+                <div className="text-muted-foreground space-y-1 text-sm">
+                  <p className="text-foreground font-medium">
                     {order.shippingAddress.recipientName}
                   </p>
                   <p>{order.shippingAddress.addressLine1}</p>
@@ -213,10 +199,9 @@ export default async function OrderDetailPage({
                     {order.shippingAddress.postalCode}
                   </p>
                   <p>{order.shippingAddress.country}</p>
-                  <div className="text-muted-foreground mt-3 flex items-center gap-2 text-xs">
-                    <MapPin className="h-3 w-3" /> Tracking:{" "}
-                    {order.trackingNumber || "Pending"}
-                  </div>
+                  <p className="mt-4 text-xs tracking-wide">
+                    Tracking: {order.trackingNumber || "Pending"}
+                  </p>
                 </div>
               </div>
             )}
@@ -227,27 +212,19 @@ export default async function OrderDetailPage({
   );
 }
 
-function StatusBadge({
-  status,
-  size = "default",
-}: {
-  status: string;
-  size?: "default" | "lg";
-}) {
+function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    Placed: "bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200",
-    Processing:
-      "bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200",
-    Shipped:
-      "bg-purple-100 text-purple-700 hover:bg-purple-100 border-purple-200",
+    Placed: "bg-[var(--secondary)] text-foreground border-[var(--border)]",
+    Processing: "bg-[var(--secondary)] text-foreground border-[var(--border)]",
+    Shipped: "bg-[var(--secondary)] text-foreground border-[var(--border)]",
     Delivered:
-      "bg-green-100 text-green-700 hover:bg-green-100 border-green-200",
-    Cancelled: "bg-red-100 text-red-700 hover:bg-red-100 border-red-200",
+      "bg-[var(--secondary)] text-[var(--primary)] border-[var(--border)]",
+    Cancelled: "bg-destructive/10 text-destructive border-destructive/20",
   };
 
   return (
     <Badge
-      className={`${styles[status] || "bg-gray-100 text-gray-700"} ${size === "lg" ? "px-4 py-1 text-base" : ""}`}
+      className={`rounded-none px-3 py-1 font-normal ${styles[status] || "text-foreground bg-[var(--secondary)]"}`}
       variant="outline"
     >
       {status}

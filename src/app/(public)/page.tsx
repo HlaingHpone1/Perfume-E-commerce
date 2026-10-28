@@ -1,10 +1,11 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/config/auth";
-import { Sparkles, Shield, Truck, Heart } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { AttachmentRecordType } from "@/generated/prisma/enums";
-import Image from "next/image";
+import { ProductCard } from "@/components/product-card";
+import { resolvePublicImage } from "@/utils/resolve-public-image";
 
 export default async function Home() {
   const t = await getTranslations();
@@ -16,14 +17,12 @@ export default async function Home() {
       brand: true,
       category: true,
       variants: {
-        take: 1, // Get the starting price from the first variant
+        take: 1,
         orderBy: { price: "asc" },
       },
     },
   });
 
-  // 2. Fetch Images for these Products
-  // We filter by the product IDs we just fetched and ensure the type is 'Product'
   const productIds = products.map((p) => p.id);
   const attachments = await prisma.attachment.findMany({
     where: {
@@ -32,142 +31,110 @@ export default async function Home() {
     },
   });
 
-  // 3. Merge Products with their Images
   const productsWithImages = products.map((product) => {
     const mainImage = attachments.find((img) => img.recordId === product.id);
     return {
       ...product,
-      imageUrl: mainImage ? mainImage.fileUrl : "/images/placeholder.jpeg",
+      imageUrl: resolvePublicImage(mainImage?.fileUrl),
       startingPrice: product.variants[0]?.price || 0,
     };
   });
 
+  const heroProduct =
+    productsWithImages.find((p) => p.imageUrl) ?? productsWithImages[0];
+  const heroImage =
+    heroProduct?.imageUrl ??
+    resolvePublicImage("/images/products/sauvage.jpg") ??
+    "/images/placeholder.jpeg";
+
   return (
-    <div className="min-h-screen">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 dark:from-purple-950/20 dark:via-pink-950/20 dark:to-rose-950/20">
-        <div className="container mx-auto px-4 py-24 md:py-32">
-          <div className="mx-auto max-w-3xl text-center">
-            <h1 className="text-foreground mb-6 text-5xl font-bold tracking-tight md:text-6xl lg:text-7xl">
+    <div>
+      <section className="relative grid min-h-[calc(100svh-4.25rem)] lg:grid-cols-2">
+        <div className="relative z-10 flex flex-col justify-center px-6 py-20 lg:px-12 xl:px-16">
+          <div className="mx-auto w-full max-w-xl lg:mx-0 lg:max-w-lg">
+            <h1 className="font-display text-foreground text-5xl leading-[0.95] tracking-tight sm:text-6xl md:text-7xl">
               {t("page.home.heroTitleMain")}
-              <span className="block bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                {t("page.home.heroTitleHighlight")}
-              </span>
             </h1>
-            <p className="text-muted-foreground mb-8 text-lg md:text-xl">
+            <p className="text-muted-foreground mt-6 max-w-md text-base leading-relaxed md:text-lg">
               {t("page.home.heroSubtitle")}
             </p>
-            <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
-              <Button size="lg" asChild>
+            <div className="mt-10">
+              <Button
+                size="lg"
+                asChild
+                className="rounded-none px-8 text-[0.7rem] tracking-[0.2em] uppercase"
+              >
                 <Link href="/products">{t("cta.shopCollection")}</Link>
               </Button>
-              <Button size="lg" variant="outline" asChild>
-                <Link href="/about">{t("cta.learnMore")}</Link>
-              </Button>
             </div>
           </div>
         </div>
-      </section>
 
-      {/* Features Section */}
-      <section className="py-16 md:py-24">
-        <div className="container mx-auto px-4">
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-            <div className="flex flex-col items-center text-center">
-              <div className="bg-primary/10 mb-4 rounded-full p-4">
-                <Sparkles className="text-primary h-8 w-8" />
-              </div>
-              <h3 className="mb-2 text-lg font-semibold">
-                {t("page.home.features.premiumTitle")}
-              </h3>
-              <p className="text-muted-foreground text-sm">
-                {t("page.home.features.premiumDescription")}
-              </p>
-            </div>
-            <div className="flex flex-col items-center text-center">
-              <div className="bg-primary/10 mb-4 rounded-full p-4">
-                <Shield className="text-primary h-8 w-8" />
-              </div>
-              <h3 className="mb-2 text-lg font-semibold">
-                {t("page.home.features.secureTitle")}
-              </h3>
-              <p className="text-muted-foreground text-sm">
-                {t("page.home.features.secureDescription")}
-              </p>
-            </div>
-            <div className="flex flex-col items-center text-center">
-              <div className="bg-primary/10 mb-4 rounded-full p-4">
-                <Truck className="text-primary h-8 w-8" />
-              </div>
-              <h3 className="mb-2 text-lg font-semibold">
-                {t("page.home.features.deliveryTitle")}
-              </h3>
-              <p className="text-muted-foreground text-sm">
-                {t("page.home.features.deliveryDescription")}
-              </p>
-            </div>
-            <div className="flex flex-col items-center text-center">
-              <div className="bg-primary/10 mb-4 rounded-full p-4">
-                <Heart className="text-primary h-8 w-8" />
-              </div>
-              <h3 className="mb-2 text-lg font-semibold">
-                {t("page.home.features.careTitle")}
-              </h3>
-              <p className="text-muted-foreground text-sm">
-                {t("page.home.features.careDescription")}
-              </p>
-            </div>
-          </div>
+        <div className="relative min-h-[48vh] lg:min-h-full">
+          <Image
+            unoptimized
+            src={heroImage}
+            alt={heroProduct?.name ?? "FragranceHub collection"}
+            fill
+            priority
+            className="object-cover object-center"
+            sizes="(max-width: 1024px) 100vw, 50vw"
+          />
+          <div className="from-background absolute inset-x-0 top-0 h-24 bg-gradient-to-b to-transparent lg:hidden" />
         </div>
       </section>
 
-      {/* Featured Products Section */}
-      <section className="container px-4">
-        <h2 className="mb-8 text-center text-2xl font-bold tracking-tight text-gray-900">
-          New Arrivals
-        </h2>
+      <section className="mx-auto max-w-6xl px-6 py-20 lg:px-8 lg:py-28">
+        <div className="mb-12 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="font-display text-foreground text-3xl tracking-tight md:text-4xl">
+              {t("page.home.featuredTitle")}
+            </h2>
+            <p className="text-muted-foreground mt-2 text-sm">
+              {t("page.home.featuredSubtitle")}
+            </p>
+          </div>
+          <Link
+            href="/products"
+            className="text-foreground text-[0.65rem] tracking-[0.2em] uppercase underline-offset-4 hover:underline"
+          >
+            {t("cta.viewAllProducts")}
+          </Link>
+        </div>
 
-        <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8">
+        <div className="grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
           {productsWithImages.map((product) => (
-            <Link
+            <ProductCard
               key={product.id}
-              href={`/products/${product.id}`}
-              className="group"
-            >
-              <div className="aspect-h-1 aspect-w-1 xl:aspect-h-8 xl:aspect-w-7 w-full overflow-hidden rounded-lg bg-gray-200">
-                <Image
-                  unoptimized
-                  src={product.imageUrl}
-                  alt={product.name}
-                  width={500}
-                  height={500}
-                  className="h-full w-full object-cover object-center transition-opacity group-hover:opacity-75"
-                />
-              </div>
-              <h3 className="mt-4 text-sm text-gray-700">{product.name}</h3>
-              <p className="mt-1 text-sm text-gray-500">{product.brand.name}</p>
-              <p className="mt-1 text-lg font-medium text-gray-900">
-                ${product.startingPrice.toFixed(2)}
-              </p>
-            </Link>
+              id={product.id}
+              name={product.name}
+              brandName={product.brand.name}
+              imageUrl={product.imageUrl}
+              price={product.startingPrice}
+              scentFamily={product.scentFamily}
+            />
           ))}
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-16 md:py-24">
-        <div className="container mx-auto px-4">
-          <div className="rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 p-12 text-center text-white">
-            <h2 className="mb-4 text-3xl font-bold md:text-4xl">
+      <section className="border-t border-[var(--border)]">
+        <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-6 py-20 lg:flex-row lg:items-end lg:justify-between lg:px-8 lg:py-24">
+          <div className="max-w-lg">
+            <h2 className="font-display text-foreground text-3xl tracking-tight md:text-4xl">
               {t("page.home.ctaTitle")}
             </h2>
-            <p className="mb-8 text-lg opacity-90">
+            <p className="text-muted-foreground mt-3 text-base leading-relaxed">
               {t("page.home.ctaSubtitle")}
             </p>
-            <Button size="lg" variant="secondary" asChild>
-              <Link href="/products">{t("cta.exploreProducts")}</Link>
-            </Button>
           </div>
+          <Button
+            size="lg"
+            variant="outline"
+            asChild
+            className="rounded-none border-[var(--foreground)] px-8 text-[0.7rem] tracking-[0.2em] uppercase"
+          >
+            <Link href="/products">{t("cta.exploreProducts")}</Link>
+          </Button>
         </div>
       </section>
     </div>

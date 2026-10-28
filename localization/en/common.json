@@ -15,7 +15,9 @@
     "profile": "Profile",
     "orders": "Order History",
     "logout": "Logout",
-    "account": "My Account"
+    "account": "My Account",
+    "themeLight": "Light theme",
+    "themeDark": "Night theme"
   },
   "cta": {
     "shopNow": "Shop Now",
