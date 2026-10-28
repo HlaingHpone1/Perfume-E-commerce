@@ -9,19 +9,22 @@ import { ShoppingBag, Check, Loader2 } from "lucide-react";
 import { useSession } from "@/config/auth-client";
 import { useCartStore } from "@/stores/useCartStore";
 import { toast } from "sonner";
-import { Product, Brand, ProductVariant } from "@/generated/prisma/client";
+import {
+  Product,
+  Brand,
+  ProductVariant,
+  Scent,
+} from "@/generated/prisma/client";
 
-interface ProductSpecs {
-  topNotes?: string[];
-  middleNotes?: string[];
-  baseNotes?: string[];
-  intensity?: string;
-  longevity?: string;
-  sillage?: string;
-}
+type ProductNoteDisplay = {
+  type: "Top" | "Middle" | "Base";
+  title: string;
+  imageUrl?: string | null;
+};
 
 type ProductWithRelations = Product & {
   brand: Brand;
+  scent?: Scent | null;
   variants: ProductVariant[];
 };
 
@@ -88,12 +91,64 @@ function ImageGallery({
   );
 }
 
+function NotePyramid({ notes }: { notes: ProductNoteDisplay[] }) {
+  const groups: { key: ProductNoteDisplay["type"]; label: string }[] = [
+    { key: "Top", label: "Top" },
+    { key: "Middle", label: "Heart" },
+    { key: "Base", label: "Base" },
+  ];
+
+  const hasAny = notes.length > 0;
+  if (!hasAny) return null;
+
+  return (
+    <div className="grid gap-6 sm:grid-cols-3">
+      {groups.map(({ key, label }) => {
+        const items = notes.filter((n) => n.type === key);
+        if (!items.length) return null;
+        return (
+          <div key={key}>
+            <p className="text-foreground text-[0.65rem] tracking-[0.18em] uppercase">
+              {label}
+            </p>
+            <ul className="mt-3 space-y-2">
+              {items.map((note) => (
+                <li
+                  key={`${key}-${note.title}`}
+                  className="flex items-center gap-2.5"
+                >
+                  {note.imageUrl ? (
+                    <span className="relative h-8 w-8 flex-shrink-0 overflow-hidden bg-[var(--storefront-mist)]">
+                      <Image
+                        src={note.imageUrl}
+                        alt={note.title}
+                        fill
+                        className="object-cover"
+                        sizes="32px"
+                      />
+                    </span>
+                  ) : null}
+                  <span className="text-muted-foreground text-sm">
+                    {note.title}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ProductView({
   product,
   attachments,
+  productNotes = [],
 }: {
   product: ProductWithRelations;
   attachments: AttachmentData[];
+  productNotes?: ProductNoteDisplay[];
 }) {
   const router = useRouter();
   const { data: session, isPending: isAuthPending } = useSession();
@@ -143,9 +198,6 @@ export function ProductView({
 
   if (!selectedVariant) return <div>Variant not found</div>;
 
-  const specs =
-    selectedVariant.specifications as unknown as ProductSpecs | null;
-
   return (
     <div className="grid grid-cols-1 gap-x-12 gap-y-12 lg:grid-cols-2">
       <ImageGallery
@@ -162,9 +214,9 @@ export function ProductView({
           <h1 className="font-display text-foreground mt-2 text-4xl tracking-tight sm:text-5xl">
             {product.name}
           </h1>
-          {product.scentFamily ? (
+          {product.scent?.title ? (
             <p className="text-muted-foreground mt-3 text-sm">
-              {product.scentFamily}
+              {product.scent.title}
             </p>
           ) : null}
         </div>
@@ -238,43 +290,7 @@ export function ProductView({
             </div>
           ) : null}
 
-          {specs &&
-          (specs.topNotes?.length ||
-            specs.middleNotes?.length ||
-            specs.baseNotes?.length) ? (
-            <div className="grid gap-4 sm:grid-cols-3">
-              {specs.topNotes?.length ? (
-                <div>
-                  <p className="text-foreground text-[0.65rem] tracking-[0.18em] uppercase">
-                    Top
-                  </p>
-                  <p className="text-muted-foreground mt-2 text-sm">
-                    {specs.topNotes.join(", ")}
-                  </p>
-                </div>
-              ) : null}
-              {specs.middleNotes?.length ? (
-                <div>
-                  <p className="text-foreground text-[0.65rem] tracking-[0.18em] uppercase">
-                    Heart
-                  </p>
-                  <p className="text-muted-foreground mt-2 text-sm">
-                    {specs.middleNotes.join(", ")}
-                  </p>
-                </div>
-              ) : null}
-              {specs.baseNotes?.length ? (
-                <div>
-                  <p className="text-foreground text-[0.65rem] tracking-[0.18em] uppercase">
-                    Base
-                  </p>
-                  <p className="text-muted-foreground mt-2 text-sm">
-                    {specs.baseNotes.join(", ")}
-                  </p>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+          <NotePyramid notes={productNotes} />
         </div>
       </div>
     </div>

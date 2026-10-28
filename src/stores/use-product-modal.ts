@@ -1,10 +1,14 @@
 import { create } from "zustand";
-import { Product } from "@/generated/prisma/client";
+import { Product, ProductNote } from "@/generated/prisma/client";
+
+export type ProductModalData = Product & {
+  productNotes?: ProductNote[];
+};
 
 interface ProductModalStore {
   isOpen: boolean;
-  data?: Product;
-  onOpen: (data?: Product) => void;
+  data?: ProductModalData;
+  onOpen: (data?: ProductModalData) => void;
   onClose: () => void;
 }
 

@@ -7,7 +7,7 @@ export type ProductCardProps = {
   brandName: string;
   imageUrl?: string | null;
   price?: number | null;
-  scentFamily?: string | null;
+  scent?: string | null;
   inStock?: boolean | null;
 };
 
@@ -17,7 +17,7 @@ export function ProductCard({
   brandName,
   imageUrl,
   price,
-  scentFamily,
+  scent,
   inStock,
 }: ProductCardProps) {
   return (
@@ -47,8 +47,8 @@ export function ProductCard({
         <h3 className="font-display text-foreground text-lg leading-snug transition-colors group-hover:text-[var(--primary)]">
           {name}
         </h3>
-        {scentFamily ? (
-          <p className="text-muted-foreground text-sm">{scentFamily}</p>
+        {scent ? (
+          <p className="text-muted-foreground text-sm">{scent}</p>
         ) : null}
         <div className="flex items-baseline justify-between gap-3 pt-1">
           {typeof price === "number" ? (

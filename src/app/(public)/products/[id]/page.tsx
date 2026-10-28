@@ -33,6 +33,11 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
     include: {
       brand: true,
       category: true,
+      scent: true,
+      productNotes: {
+        orderBy: [{ type: "asc" }, { sortOrder: "asc" }],
+        include: { note: true },
+      },
       variants: {
         orderBy: { price: "asc" },
       },
@@ -51,6 +56,7 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
     take: 4,
     include: {
       brand: true,
+      scent: true,
       variants: {
         take: 1,
         orderBy: { price: "asc" },
@@ -58,6 +64,7 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
     },
   });
 
+  const noteIds = product.productNotes.map((pn) => pn.noteId);
   const relatedProductIds = relatedProducts.map((p) => p.id);
   const allRelevantIds = [
     product.id,
@@ -65,19 +72,46 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
     ...relatedProductIds,
   ];
 
-  const attachments = await prisma.attachment.findMany({
-    where: {
-      recordType: {
-        in: [AttachmentRecordType.Product, AttachmentRecordType.ProductVariant],
+  const [attachments, noteAttachments] = await Promise.all([
+    prisma.attachment.findMany({
+      where: {
+        recordType: {
+          in: [
+            AttachmentRecordType.Product,
+            AttachmentRecordType.ProductVariant,
+          ],
+        },
+        recordId: { in: allRelevantIds },
       },
-      recordId: { in: allRelevantIds },
-    },
-    select: {
-      recordId: true,
-      fileUrl: true,
-      recordType: true,
-    },
-  });
+      select: {
+        recordId: true,
+        fileUrl: true,
+        recordType: true,
+      },
+    }),
+    noteIds.length
+      ? prisma.attachment.findMany({
+          where: {
+            recordType: AttachmentRecordType.Note,
+            recordId: { in: noteIds },
+          },
+          select: { recordId: true, fileUrl: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const noteImageById = Object.fromEntries(
+    noteAttachments.flatMap((a) => {
+      const fileUrl = resolvePublicImage(a.fileUrl);
+      return fileUrl ? [[a.recordId, fileUrl] as const] : [];
+    }),
+  );
+
+  const productNotes = product.productNotes.map((pn) => ({
+    type: pn.type as "Top" | "Middle" | "Base",
+    title: pn.note.title,
+    imageUrl: noteImageById[pn.noteId] ?? null,
+  }));
 
   const mainProductAttachments = attachments
     .filter(
@@ -115,7 +149,11 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
           <span className="text-foreground">{product.name}</span>
         </nav>
 
-        <ProductView product={product} attachments={mainProductAttachments} />
+        <ProductView
+          product={product}
+          attachments={mainProductAttachments}
+          productNotes={productNotes}
+        />
 
         {relatedProducts.length > 0 && (
           <div className="mt-24 border-t border-[var(--border)] pt-16">
@@ -139,6 +177,7 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
                     brandName={related.brand.name}
                     imageUrl={resolvePublicImage(image?.fileUrl)}
                     price={variant?.price}
+                    scent={related.scent?.title}
                   />
                 );
               })}

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
-import { useProductModal } from "@/stores/use-product-modal";
-import { createProduct, updateProduct } from "./action";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,9 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -25,87 +28,149 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
-import { Brand, Category } from "@/generated/prisma/client";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2, Upload } from "lucide-react";
+import { Brand, Category, Note, Scent } from "@/generated/prisma/client";
+import { createProduct, updateProduct } from "./action";
+import Image from "next/image";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useProductModal } from "@/stores/use-product-modal";
 
-interface ProductModalProps {
-  brands: Brand[];
-  categories: Category[];
+enum GenderTarget {
+  Men = "Men",
+  Women = "Women",
+  Unisex = "Unisex",
 }
-const productSchema = z.object({
+
+const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   brandId: z.string().min(1, "Brand is required"),
   categoryId: z.string().min(1, "Category is required"),
-  scentFamily: z.string().optional(),
-  genderTarget: z.string().optional(), // "Men", "Women", "Unisex"
-  image: z.any().optional(),
+  scentId: z.string().optional(),
+  genderTarget: z.nativeEnum(GenderTarget).optional().or(z.literal("")),
+  topNoteIds: z.array(z.string()),
+  middleNoteIds: z.array(z.string()),
+  baseNoteIds: z.array(z.string()),
 });
 
-type ProductFormValues = z.infer<typeof productSchema>;
+interface ProductModalProps {
+  brands: Brand[];
+  categories: Category[];
+  scents: Scent[];
+  notes: Note[];
+}
 
-export const ProductModal = ({ brands, categories }: ProductModalProps) => {
+function NoteChecklist({
+  notes,
+  value,
+  onChange,
+  label,
+}: {
+  notes: Note[];
+  value: string[];
+  onChange: (ids: string[]) => void;
+  label: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <FormLabel className="text-xs">{label}</FormLabel>
+      <div className="max-h-28 space-y-1.5 overflow-y-auto rounded-md border p-2">
+        {notes.length === 0 ? (
+          <p className="text-muted-foreground text-xs">No notes yet</p>
+        ) : (
+          notes.map((note) => {
+            const checked = value.includes(note.id);
+            return (
+              <label
+                key={note.id}
+                className="flex cursor-pointer items-center gap-2 text-sm"
+              >
+                <Checkbox
+                  checked={checked}
+                  onCheckedChange={(v) => {
+                    if (v) onChange([...value, note.id]);
+                    else onChange(value.filter((id) => id !== note.id));
+                  }}
+                />
+                <span>{note.title}</span>
+              </label>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+export const ProductModal = ({
+  brands,
+  categories,
+  scents,
+  notes,
+}: ProductModalProps) => {
   const { isOpen, onClose, data } = useProductModal();
-  const [loading, setLoading] = useState(false);
+  const [loading, startTransition] = useTransition();
+  const [preview, setPreview] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
 
-  const form = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema),
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       description: "",
       brandId: "",
       categoryId: "",
-      scentFamily: "",
-      genderTarget: "Unisex",
-      image: undefined,
+      scentId: "",
+      genderTarget: "",
+      topNoteIds: [],
+      middleNoteIds: [],
+      baseNoteIds: [],
     },
   });
 
   useEffect(() => {
-    if (data) {
+    if (isOpen) {
+      const productNotes = data?.productNotes ?? [];
       form.reset({
-        name: data.name,
-        description: data.description || "",
-        brandId: data.brandId,
-        categoryId: data.categoryId,
-        scentFamily: data.scentFamily || "",
-        genderTarget: data.genderTarget || "Unisex",
+        name: data?.name || "",
+        description: data?.description || "",
+        brandId: data?.brandId || "",
+        categoryId: data?.categoryId || "",
+        scentId: data?.scentId || "",
+        genderTarget: (data?.genderTarget as GenderTarget | null) || "",
+        topNoteIds: productNotes
+          .filter((n) => n.type === "Top")
+          .map((n) => n.noteId),
+        middleNoteIds: productNotes
+          .filter((n) => n.type === "Middle")
+          .map((n) => n.noteId),
+        baseNoteIds: productNotes
+          .filter((n) => n.type === "Base")
+          .map((n) => n.noteId),
       });
-    } else {
-      form.reset({ name: "", description: "", brandId: "", categoryId: "" });
+      setPreview(null);
+      setFile(null);
     }
-  }, [data, isOpen, form]);
+  }, [isOpen, data, form]);
 
-  const onSubmit = async (values: ProductFormValues) => {
-    if (!data && (!values.image || values.image.length === 0)) {
-      form.setError("image", {
-        type: "manual",
-        message: "Product image is required for new products",
-      });
-      return;
-    }
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.append("name", values.name);
+      formData.append("description", values.description || "");
+      formData.append("brandId", values.brandId);
+      formData.append("categoryId", values.categoryId);
+      if (values.scentId) formData.append("scentId", values.scentId);
+      if (values.genderTarget)
+        formData.append("genderTarget", values.genderTarget);
+      values.topNoteIds.forEach((id) => formData.append("topNoteIds", id));
+      values.middleNoteIds.forEach((id) =>
+        formData.append("middleNoteIds", id),
+      );
+      values.baseNoteIds.forEach((id) => formData.append("baseNoteIds", id));
+      if (file) formData.append("image", file);
 
-    setLoading(true);
-    const formData = new FormData();
-    formData.append("name", values.name);
-    formData.append("description", values.description || "");
-    formData.append("brandId", values.brandId);
-    formData.append("categoryId", values.categoryId);
-    formData.append("scentFamily", values.scentFamily || "");
-    formData.append("genderTarget", values.genderTarget || "");
-
-    // Append File if exists
-    if (values.image && values.image.length > 0) {
-      formData.append("image", values.image[0]);
-    }
-
-    try {
       const result = data
         ? await updateProduct(data.id, formData)
         : await createProduct(formData);
@@ -116,37 +181,66 @@ export const ProductModal = ({ brands, categories }: ProductModalProps) => {
       } else {
         toast.error(result.error);
       }
-    } catch {
-      toast.error("Something went wrong");
-    } finally {
-      setLoading(false);
+    });
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (selected) {
+      setFile(selected);
+      const reader = new FileReader();
+      reader.onloadend = () => setPreview(reader.result as string);
+      reader.readAsDataURL(selected);
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[600px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>{data ? "Edit Product" : "Create Product"}</DialogTitle>
+          <DialogTitle>{data ? "Edit Product" : "Add Product"}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Basic Info */}
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Product Name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+            <div className="flex justify-center">
+              <div className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100">
+                {preview ? (
+                  <Image
+                    src={preview}
+                    alt="Preview"
+                    fill
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center text-gray-400">
+                    <Upload className="mb-1 h-8 w-8" />
+                    <span className="text-xs">Upload Image</span>
+                  </div>
                 )}
-              />
+                <Input
+                  type="file"
+                  accept="image/*"
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  onChange={handleFileChange}
+                />
+              </div>
+            </div>
 
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Product Name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="brandId"
@@ -171,9 +265,7 @@ export const ProductModal = ({ brands, categories }: ProductModalProps) => {
                   </FormItem>
                 )}
               />
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="categoryId"
@@ -198,23 +290,66 @@ export const ProductModal = ({ brands, categories }: ProductModalProps) => {
                   </FormItem>
                 )}
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="scentId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Scent Family</FormLabel>
+                    <Select
+                      onValueChange={(v) =>
+                        field.onChange(v === "__none__" ? "" : v)
+                      }
+                      value={field.value || "__none__"}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Scent" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="__none__">None</SelectItem>
+                        {scents.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}
                 name="genderTarget"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Gender</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <FormLabel>Gender Target</FormLabel>
+                    <Select
+                      onValueChange={(v) =>
+                        field.onChange(v === "__none__" ? "" : v)
+                      }
+                      value={field.value || "__none__"}
+                    >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select Gender" />
+                          <SelectValue placeholder="Select" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Men">Men</SelectItem>
-                        <SelectItem value="Women">Women</SelectItem>
-                        <SelectItem value="Unisex">Unisex</SelectItem>
+                        <SelectItem value="__none__">None</SelectItem>
+                        <SelectItem value={GenderTarget.Men}>Men</SelectItem>
+                        <SelectItem value={GenderTarget.Women}>
+                          Women
+                        </SelectItem>
+                        <SelectItem value={GenderTarget.Unisex}>
+                          Unisex
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -223,23 +358,51 @@ export const ProductModal = ({ brands, categories }: ProductModalProps) => {
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="scentFamily"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Scent Family</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g. Woody, Floral"
-                      {...field}
-                      value={field.value ?? ""}
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium">Fragrance Notes</h4>
+              <FormField
+                control={form.control}
+                name="topNoteIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <NoteChecklist
+                      label="Top Notes"
+                      notes={notes}
+                      value={field.value}
+                      onChange={field.onChange}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="middleNoteIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <NoteChecklist
+                      label="Middle / Heart Notes"
+                      notes={notes}
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="baseNoteIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <NoteChecklist
+                      label="Base Notes"
+                      notes={notes}
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}
@@ -248,48 +411,24 @@ export const ProductModal = ({ brands, categories }: ProductModalProps) => {
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Details..." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Image Upload */}
-            <FormField
-              control={form.control}
-              name="image"
-              render={({ field: { value, onChange, ...fieldProps } }) => (
-                <FormItem>
-                  <FormLabel>
-                    Product Image <span className="text-red-500">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      {...fieldProps}
-                      type="file"
-                      accept="image/*"
-                      onChange={(event) => {
-                        const files = event.target.files;
-                        if (files && files.length > 0) {
-                          onChange(files);
-                          // Clear error immediately when file is picked
-                          form.clearErrors("image");
-                        }
-                      }}
+                    <Textarea
+                      placeholder="Product description..."
+                      className="resize-none"
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={onClose} type="button">
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {data ? "Save" : "Create"}
+                {data ? "Save Changes" : "Create Product"}
               </Button>
             </div>
           </form>

@@ -57,6 +57,16 @@ const sidebarItems = [
         href: "/admin/brands",
         icon: Tags,
       },
+      {
+        title: "Scents",
+        href: "/admin/scents",
+        icon: Tags,
+      },
+      {
+        title: "Notes",
+        href: "/admin/notes",
+        icon: Layers,
+      },
     ],
   },
   {

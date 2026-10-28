@@ -16,6 +16,7 @@ export default async function Home() {
     include: {
       brand: true,
       category: true,
+      scent: true,
       variants: {
         take: 1,
         orderBy: { price: "asc" },
@@ -111,7 +112,7 @@ export default async function Home() {
               brandName={product.brand.name}
               imageUrl={product.imageUrl}
               price={product.startingPrice}
-              scentFamily={product.scentFamily}
+              scent={product.scent?.title}
             />
           ))}
         </div>

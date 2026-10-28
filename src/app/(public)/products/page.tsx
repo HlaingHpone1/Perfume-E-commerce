@@ -44,7 +44,7 @@ export default async function ProductsPage({
     where.OR = [
       { name: { contains: search, mode: "insensitive" } },
       { brand: { name: { contains: search, mode: "insensitive" } } },
-      { scentFamily: { contains: search, mode: "insensitive" } },
+      { scent: { title: { contains: search, mode: "insensitive" } } },
     ];
   }
 
@@ -54,6 +54,7 @@ export default async function ProductsPage({
       include: {
         brand: true,
         category: true,
+        scent: true,
         variants: {
           take: 1,
           orderBy: { price: "asc" },
@@ -160,7 +161,7 @@ export default async function ProductsPage({
                     brandName={product.brand.name}
                     imageUrl={product.imageUrl}
                     price={variant?.price}
-                    scentFamily={product.scentFamily}
+                    scent={product.scent?.title}
                     inStock={variant ? variant.stockLevel > 0 : null}
                   />
                 );

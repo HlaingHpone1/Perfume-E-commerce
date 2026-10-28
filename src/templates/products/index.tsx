@@ -5,6 +5,9 @@ import {
   Brand,
   Category,
   Attachment,
+  Note,
+  Scent,
+  ProductNote,
 } from "@/generated/prisma/client";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
@@ -32,10 +35,11 @@ import { toast } from "sonner";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 
-// Extended type to include relations
 type ProductWithRelations = Product & {
   brand: Brand;
   category: Category;
+  scent?: Scent | null;
+  productNotes?: ProductNote[];
   attachments?: Attachment[];
   _count: { variants: number };
 };
@@ -44,6 +48,8 @@ interface ProductTableProps {
   data: ProductWithRelations[];
   allBrands: Brand[];
   allCategories: Category[];
+  allScents: Scent[];
+  allNotes: Note[];
   totalPages: number;
 }
 
@@ -52,6 +58,8 @@ export function ProductTable({
   allBrands,
   totalPages,
   allCategories,
+  allScents,
+  allNotes,
 }: ProductTableProps) {
   const productModal = useProductModal();
   const deleteModal = useDeleteModalStore();
@@ -161,7 +169,12 @@ export function ProductTable({
 
       <DataTable columns={columns} data={data} totalPages={totalPages} />
 
-      <ProductModal brands={allBrands} categories={allCategories} />
+      <ProductModal
+        brands={allBrands}
+        categories={allCategories}
+        scents={allScents}
+        notes={allNotes}
+      />
 
       <DeleteDialog
         title="Delete Product"

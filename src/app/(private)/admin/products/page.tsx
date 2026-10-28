@@ -10,7 +10,6 @@ type PageProps = {
 export default async function ProductsPage({ searchParams }: PageProps) {
   const params = await searchParams;
 
-  // 1. Pagination Parameters
   const query = (params.search as string) || "";
   const page = Number(params.page) || 1;
   const limit = Number(params.limit) || 10;
@@ -20,32 +19,30 @@ export default async function ProductsPage({ searchParams }: PageProps) {
     ? { name: { contains: query, mode: "insensitive" } }
     : {};
 
-  // 3. Parallel Fetching (Primary Data)
-  const [totalCount, products, brands, categories] = await Promise.all([
-    // A. Total Count
-    prisma.product.count({ where }),
-
-    // B. Paginated Products
-    prisma.product.findMany({
-      where,
-      include: {
-        brand: true,
-        category: true,
-        _count: {
-          select: { variants: true },
+  const [totalCount, products, brands, categories, scents, notes] =
+    await Promise.all([
+      prisma.product.count({ where }),
+      prisma.product.findMany({
+        where,
+        include: {
+          brand: true,
+          category: true,
+          scent: true,
+          productNotes: { orderBy: { sortOrder: "asc" } },
+          _count: {
+            select: { variants: true },
+          },
         },
-      },
-      orderBy: { createdAt: "desc" },
-      take: limit, // Limit
-      skip: skip, // Offset
-    }),
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        skip: skip,
+      }),
+      prisma.brand.findMany({ orderBy: { name: "asc" } }),
+      prisma.category.findMany({ orderBy: { name: "asc" } }),
+      prisma.scent.findMany({ orderBy: { title: "asc" } }),
+      prisma.note.findMany({ orderBy: { title: "asc" } }),
+    ]);
 
-    // C. Dropdown Data (Must be full lists)
-    prisma.brand.findMany({ orderBy: { name: "asc" } }),
-    prisma.category.findMany({ orderBy: { name: "asc" } }),
-  ]);
-
-  // 4. Fetch Attachments (Dependent on fetched products)
   const productIds = products.map((p) => p.id);
   const attachments = await prisma.attachment.findMany({
     where: {
@@ -54,13 +51,11 @@ export default async function ProductsPage({ searchParams }: PageProps) {
     },
   });
 
-  // 5. Map Attachments to Products
   const productsWithImages = products.map((p) => ({
     ...p,
     attachments: attachments.filter((a) => a.recordId === p.id),
   }));
 
-  // 6. Calculate Total Pages
   const totalPages = Math.ceil(totalCount / limit);
 
   return (
@@ -75,6 +70,8 @@ export default async function ProductsPage({ searchParams }: PageProps) {
           data={productsWithImages}
           allBrands={brands}
           allCategories={categories}
+          allScents={scents}
+          allNotes={notes}
           totalPages={totalPages}
         />
       </Suspense>

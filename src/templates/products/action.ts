@@ -1,28 +1,31 @@
 "use server";
 
-import { z } from "zod"; // You might need `zod-form-data` for cleaner file validation, but standard zod works if handled carefully
+import { z } from "zod";
 import { prisma } from "@/config/auth";
 import { auth } from "@/config/auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { User, AttachmentRecordType, Prisma } from "@/generated/prisma/client";
+import {
+  User,
+  AttachmentRecordType,
+  Prisma,
+  GenderTarget,
+  NoteType,
+} from "@/generated/prisma/client";
 import {
   deleteFileLocally,
   saveFileLocally,
 } from "@/templates/action/fileUpload";
 
-// --- Schema ---
-// We validate separate fields because FormData values are strings/files
 const productSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   brandId: z.string().min(1, "Brand is required"),
   categoryId: z.string().min(1, "Category is required"),
-  scentFamily: z.string().optional(),
-  genderTarget: z.string().optional(), // "Men", "Women", "Unisex"
+  scentId: z.string().optional().nullable(),
+  genderTarget: z.nativeEnum(GenderTarget).optional().nullable(),
 });
 
-// --- Helper ---
 async function checkAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
   const user = session?.user as User;
@@ -41,26 +44,59 @@ async function checkAdminOrManager() {
   }
 }
 
-// --- Actions ---
+function parseNoteIds(formData: FormData, key: string): string[] {
+  return formData
+    .getAll(key)
+    .map(String)
+    .filter((id) => id.length > 0);
+}
+
+function buildProductNotes(
+  productId: string,
+  topIds: string[],
+  middleIds: string[],
+  baseIds: string[],
+) {
+  const rows: {
+    productId: string;
+    noteId: string;
+    type: NoteType;
+    sortOrder: number;
+  }[] = [];
+  const push = (type: NoteType, ids: string[]) => {
+    ids.forEach((noteId, i) => {
+      rows.push({ productId, noteId, type, sortOrder: i });
+    });
+  };
+  push(NoteType.Top, topIds);
+  push(NoteType.Middle, middleIds);
+  push(NoteType.Base, baseIds);
+  return rows;
+}
 
 export async function createProduct(formData: FormData) {
   try {
     await checkAdminOrManager();
 
-    // 1. Validate Text Fields
+    const genderRaw = formData.get("genderTarget");
+    const scentRaw = formData.get("scentId");
     const rawData = {
       name: formData.get("name"),
       description: formData.get("description"),
       brandId: formData.get("brandId"),
       categoryId: formData.get("categoryId"),
-      scentFamily: formData.get("scentFamily"),
-      genderTarget: formData.get("genderTarget"),
+      scentId: scentRaw && String(scentRaw).length ? String(scentRaw) : null,
+      genderTarget:
+        genderRaw && String(genderRaw).length ? String(genderRaw) : null,
     };
 
     const validation = productSchema.safeParse(rawData);
     if (!validation.success) return { success: false, error: "Invalid data" };
 
-    // 2. Handle File Upload
+    const topNoteIds = parseNoteIds(formData, "topNoteIds");
+    const middleNoteIds = parseNoteIds(formData, "middleNoteIds");
+    const baseNoteIds = parseNoteIds(formData, "baseNoteIds");
+
     const file = formData.get("image") as File | null;
     let attachmentData = null;
 
@@ -72,7 +108,6 @@ export async function createProduct(formData: FormData) {
       attachmentData = uploadResult;
     }
 
-    // 3. Create Product & Attachment (Transaction)
     await prisma.$transaction(async (tx) => {
       const product = await tx.product.create({
         data: {
@@ -80,10 +115,20 @@ export async function createProduct(formData: FormData) {
           description: validation.data.description || "",
           brandId: validation.data.brandId,
           categoryId: validation.data.categoryId,
-          scentFamily: validation.data.scentFamily || null,
+          scentId: validation.data.scentId || null,
           genderTarget: validation.data.genderTarget || null,
         },
       });
+
+      const noteRows = buildProductNotes(
+        product.id,
+        topNoteIds,
+        middleNoteIds,
+        baseNoteIds,
+      );
+      if (noteRows.length) {
+        await tx.productNote.createMany({ data: noteRows });
+      }
 
       if (attachmentData) {
         await tx.attachment.create({
@@ -111,44 +156,63 @@ export async function updateProduct(id: string, formData: FormData) {
   try {
     await checkAdminOrManager();
 
+    const genderRaw = formData.get("genderTarget");
+    const scentRaw = formData.get("scentId");
     const rawData = {
       name: formData.get("name"),
       description: formData.get("description"),
       brandId: formData.get("brandId"),
       categoryId: formData.get("categoryId"),
-      scentFamily: formData.get("scentFamily"),
-      genderTarget: formData.get("genderTarget"),
+      scentId: scentRaw && String(scentRaw).length ? String(scentRaw) : null,
+      genderTarget:
+        genderRaw && String(genderRaw).length ? String(genderRaw) : null,
     };
 
     const validation = productSchema.safeParse(rawData);
     if (!validation.success) return { success: false, error: "Invalid data" };
 
-    // Update Product Fields
-    await prisma.product.update({
-      where: { id },
-      data: {
-        ...validation.data,
-      },
+    const topNoteIds = parseNoteIds(formData, "topNoteIds");
+    const middleNoteIds = parseNoteIds(formData, "middleNoteIds");
+    const baseNoteIds = parseNoteIds(formData, "baseNoteIds");
+
+    await prisma.$transaction(async (tx) => {
+      await tx.product.update({
+        where: { id },
+        data: {
+          name: validation.data.name,
+          description: validation.data.description || "",
+          brandId: validation.data.brandId,
+          categoryId: validation.data.categoryId,
+          scentId: validation.data.scentId || null,
+          genderTarget: validation.data.genderTarget || null,
+        },
+      });
+
+      await tx.productNote.deleteMany({ where: { productId: id } });
+      const noteRows = buildProductNotes(
+        id,
+        topNoteIds,
+        middleNoteIds,
+        baseNoteIds,
+      );
+      if (noteRows.length) {
+        await tx.productNote.createMany({ data: noteRows });
+      }
     });
 
-    // Handle Image Replacement
     const file = formData.get("image") as File | null;
     if (file && file.size > 0) {
-      // 1. Find old attachment
       const oldAttachment = await prisma.attachment.findFirst({
         where: { recordId: id, recordType: AttachmentRecordType.Product },
       });
 
-      // 2. Delete old file from disk
       if (oldAttachment) {
         await deleteFileLocally(oldAttachment.fileUrl);
         await prisma.attachment.delete({ where: { id: oldAttachment.id } });
       }
 
-      // 3. Upload new
       const uploadResult = await saveFileLocally(file, "products");
 
-      // 4. Create new DB record
       await prisma.attachment.create({
         data: {
           fileUrl: uploadResult.url,
@@ -164,6 +228,7 @@ export async function updateProduct(id: string, formData: FormData) {
     revalidatePath("/admin/products");
     return { success: true, message: "Product updated" };
   } catch (error) {
+    console.error(error);
     return { success: false, error: "Failed to update product" };
   }
 }
@@ -205,7 +270,6 @@ export async function deleteProduct(id: string) {
       }
     }
 
-    // 3. Cleanup Images (Attachments)
     const attachments = await prisma.attachment.findMany({
       where: { recordId: id, recordType: AttachmentRecordType.Product },
     });
@@ -218,14 +282,13 @@ export async function deleteProduct(id: string) {
       where: { recordId: id, recordType: AttachmentRecordType.Product },
     });
 
-    // 4. Finally Delete the Product
+    await prisma.productNote.deleteMany({ where: { productId: id } });
     await prisma.product.delete({ where: { id } });
 
     revalidatePath("/admin/products");
     return { success: true, message: "Product deleted successfully" };
   } catch (error) {
     console.error("Delete product error:", error);
-    // Handle Prisma Foreign Key constraint errors specifically if they slip through
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2003") {
         return {

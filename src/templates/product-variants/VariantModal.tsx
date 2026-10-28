@@ -70,10 +70,6 @@ const variantFormSchema = z.object({
       val === "" || val === null || val === undefined ? undefined : Number(val),
     z.number().optional(),
   ),
-
-  topNotes: z.string().optional(),
-  middleNotes: z.string().optional(),
-  baseNotes: z.string().optional(),
 });
 
 // Export type for use in other components if needed, BUT NOT in Server Actions (circular dep risk)
@@ -104,17 +100,11 @@ export const VariantModal = ({ products }: VariantModalProps) => {
       reorderPoint: 10,
       isTester: false,
       weightGrams: undefined,
-      topNotes: "",
-      middleNotes: "",
-      baseNotes: "",
     },
   });
 
   useEffect(() => {
     if (data) {
-      // Safely parse JSON specs
-      const specs = data.specifications as Record<string, string> | null;
-
       form.reset({
         productId: data.productId || "",
         sku: data.sku,
@@ -125,9 +115,6 @@ export const VariantModal = ({ products }: VariantModalProps) => {
         reorderPoint: data.reorderPoint,
         isTester: data.isTester,
         weightGrams: data.weightGrams ?? undefined,
-        topNotes: specs?.top || "",
-        middleNotes: specs?.middle || "",
-        baseNotes: specs?.base || "",
       });
     } else {
       form.reset({
@@ -140,9 +127,6 @@ export const VariantModal = ({ products }: VariantModalProps) => {
         reorderPoint: 10,
         isTester: false,
         weightGrams: undefined,
-        topNotes: "",
-        middleNotes: "",
-        baseNotes: "",
       });
     }
   }, [data, isOpen, form]);
@@ -344,50 +328,6 @@ export const VariantModal = ({ products }: VariantModalProps) => {
                   </FormItem>
                 )}
               />
-            </div>
-
-            <div className="space-y-3 pt-2">
-              <h4 className="text-sm font-medium text-gray-900">
-                Scent Profile
-              </h4>
-              <div className="grid grid-cols-1 gap-3">
-                <FormField
-                  control={form.control}
-                  name="topNotes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Top Notes</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Bergamot" {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="middleNotes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Middle Notes</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Rose" {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="baseNotes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Base Notes</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Oud" {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
