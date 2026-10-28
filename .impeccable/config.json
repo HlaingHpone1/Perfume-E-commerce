@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "helvetica",
+        "createdAt": "2026-10-28T07:12:09.567Z",
+        "reason": "Email-safe body stack; web fonts unreliable in clients; Georgia used for display"
+      }
+    ]
+  }
+}
