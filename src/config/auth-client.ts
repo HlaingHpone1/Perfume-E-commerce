@@ -8,7 +8,7 @@ export const {
   useSession,
   signOut,
   getSession,
-  forgetPassword,
+  requestPasswordReset,
   resetPassword,
 } = createAuthClient({
   baseURL: process.env.NEXT_PUBLIC_BASE_URL,

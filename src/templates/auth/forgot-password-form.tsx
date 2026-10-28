@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { forgetPassword } from "@/config/auth-client";
+import { requestPasswordReset } from "@/config/auth-client";
 
 const forgotPasswordSchema = (t: (key: string) => string) =>
   z.object({
@@ -34,7 +34,7 @@ export function ForgotPasswordForm() {
   const onSubmit = async (data: ForgotPasswordValues) => {
     setIsSubmitting(true);
     try {
-      const { error } = await forgetPassword({
+      const { error } = await requestPasswordReset({
         email: data.email,
         redirectTo: "/reset-password",
       });
