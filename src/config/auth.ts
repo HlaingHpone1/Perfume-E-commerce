@@ -47,7 +47,7 @@ export const auth =
     session: {
       disableSessionRefresh: false,
       cookieCache: {
-        enabled: false,
+        enabled: true,
         maxAge: 7 * 24 * 60 * 60, // 7 days cache duration
         strategy: "jwe",
         refreshCache: true,

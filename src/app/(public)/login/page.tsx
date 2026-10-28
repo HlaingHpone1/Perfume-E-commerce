@@ -1,6 +1,9 @@
 import { getTranslations } from "next-intl/server";
 import { LoginForm } from "@/templates/auth/login-form";
 import { Metadata } from "next";
+import { auth } from "@/config/auth";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Login - FragranceHub",
@@ -8,6 +11,9 @@ export const metadata: Metadata = {
 };
 
 export default async function LoginPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (session) redirect("/");
+
   const t = await getTranslations();
 
   return (

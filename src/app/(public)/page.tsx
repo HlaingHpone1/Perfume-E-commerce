@@ -1,45 +1,14 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { prisma } from "@/config/auth";
 import { getTranslations } from "next-intl/server";
-import { AttachmentRecordType } from "@/generated/prisma/enums";
 import { ProductCard } from "@/components/product-card";
 import { HeroCarousel, type HeroSlide } from "@/components/hero-carousel";
 import { resolvePublicImage } from "@/utils/resolve-public-image";
+import { getFeaturedProducts } from "@/lib/catalog";
 
 export default async function Home() {
   const t = await getTranslations();
-
-  const products = await prisma.product.findMany({
-    take: 8,
-    orderBy: { createdAt: "desc" },
-    include: {
-      brand: true,
-      category: true,
-      scent: true,
-      variants: {
-        take: 1,
-        orderBy: { price: "asc" },
-      },
-    },
-  });
-
-  const productIds = products.map((p) => p.id);
-  const attachments = await prisma.attachment.findMany({
-    where: {
-      recordType: AttachmentRecordType.Product,
-      recordId: { in: productIds },
-    },
-  });
-
-  const productsWithImages = products.map((product) => {
-    const mainImage = attachments.find((img) => img.recordId === product.id);
-    return {
-      ...product,
-      imageUrl: resolvePublicImage(mainImage?.fileUrl),
-      startingPrice: product.variants[0]?.price || 0,
-    };
-  });
+  const productsWithImages = await getFeaturedProducts();
 
   const productSlides: HeroSlide[] = productsWithImages
     .filter((p) => Boolean(p.imageUrl))
@@ -47,7 +16,7 @@ export default async function Home() {
     .map((product) => ({
       id: product.id,
       title: product.name,
-      subtitle: [product.brand.name, product.scent?.title]
+      subtitle: [product.brandName, product.scentTitle]
         .filter(Boolean)
         .join(" · "),
       ctaHref: `/products/${product.id}`,
@@ -101,10 +70,10 @@ export default async function Home() {
               key={product.id}
               id={product.id}
               name={product.name}
-              brandName={product.brand.name}
+              brandName={product.brandName}
               imageUrl={product.imageUrl}
               price={product.startingPrice}
-              scent={product.scent?.title}
+              scent={product.scentTitle}
             />
           ))}
         </div>

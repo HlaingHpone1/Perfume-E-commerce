@@ -1,6 +1,9 @@
 import { getTranslations } from "next-intl/server";
 import { RegisterForm } from "@/templates/auth/register-form";
 import { Metadata } from "next";
+import { auth } from "@/config/auth";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Register - FragranceHub",
@@ -8,6 +11,9 @@ export const metadata: Metadata = {
 };
 
 export default async function RegisterPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (session) redirect("/");
+
   const t = await getTranslations();
 
   return (

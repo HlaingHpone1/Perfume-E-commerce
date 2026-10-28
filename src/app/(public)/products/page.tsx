@@ -8,6 +8,7 @@ import { ProductCard } from "@/components/product-card";
 import { Metadata } from "next";
 import { cn } from "@/utils";
 import { resolvePublicImage } from "@/utils/resolve-public-image";
+import { getRootCategories } from "@/lib/catalog";
 
 export const metadata: Metadata = {
   title: "Products - FragranceHub",
@@ -48,7 +49,7 @@ export default async function ProductsPage({
     ];
   }
 
-  const [products, totalCount] = await Promise.all([
+  const [products, totalCount, categories] = await Promise.all([
     prisma.product.findMany({
       where,
       include: {
@@ -65,17 +66,21 @@ export default async function ProductsPage({
       take: limit,
     }),
     prisma.product.count({ where }),
+    getRootCategories(),
   ]);
 
   const totalPages = Math.ceil(totalCount / limit);
 
   const productIds = products.map((p) => p.id);
-  const attachments = await prisma.attachment.findMany({
-    where: {
-      recordType: AttachmentRecordType.Product,
-      recordId: { in: productIds },
-    },
-  });
+  const attachments =
+    productIds.length === 0
+      ? []
+      : await prisma.attachment.findMany({
+          where: {
+            recordType: AttachmentRecordType.Product,
+            recordId: { in: productIds },
+          },
+        });
 
   const productsWithImages = products.map((product) => {
     const image = attachments.find((a) => a.recordId === product.id);
@@ -83,18 +88,6 @@ export default async function ProductsPage({
       ...product,
       imageUrl: resolvePublicImage(image?.fileUrl),
     };
-  });
-
-  const categories = await prisma.category.findMany({
-    where: { parentCategoryId: null },
-    include: {
-      _count: { select: { products: true } },
-      subCategories: {
-        include: {
-          _count: { select: { products: true } },
-        },
-      },
-    },
   });
 
   return (
