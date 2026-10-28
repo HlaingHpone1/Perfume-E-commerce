@@ -8,6 +8,7 @@ import {
   Note,
   Scent,
   ProductNote,
+  ProductVariant,
 } from "@/generated/prisma/client";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ type ProductWithRelations = Product & {
   category: Category;
   scent?: Scent | null;
   productNotes?: ProductNote[];
+  variants?: ProductVariant[];
   attachments?: Attachment[];
   _count: { variants: number };
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, Plus, Trash2, Upload } from "lucide-react";
 import { Brand, Category, Note, Scent } from "@/generated/prisma/client";
 import { createProduct, updateProduct } from "./action";
 import Image from "next/image";
@@ -42,6 +42,62 @@ enum GenderTarget {
   Unisex = "Unisex",
 }
 
+enum Concentration {
+  EDT = "EDT",
+  EDP = "EDP",
+  Parfum = "Parfum",
+  Extrait = "Extrait",
+}
+
+const emptyVariant = () => ({
+  id: "",
+  sku: "",
+  name: "",
+  concentration: Concentration.EDP,
+  volumeMl: 100,
+  price: 0,
+  reorderPoint: 10,
+  isTester: false,
+  weightGrams: undefined as number | undefined,
+});
+
+const variantSchema = z
+  .object({
+    id: z.string().optional(),
+    sku: z.string(),
+    name: z.string(),
+    concentration: z.nativeEnum(Concentration),
+    volumeMl: z.coerce.number().min(1, "Volume required"),
+    price: z.coerce.number().min(0, "Price required"),
+    reorderPoint: z.coerce.number().min(0).default(0),
+    isTester: z.boolean().default(false),
+    weightGrams: z.preprocess(
+      (val) =>
+        val === "" || val === null || val === undefined
+          ? undefined
+          : Number(val),
+      z.number().optional(),
+    ),
+  })
+  .superRefine((v, ctx) => {
+    const blank = !v.sku.trim() && !v.name.trim();
+    if (blank) return;
+    if (!v.sku.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "SKU required",
+        path: ["sku"],
+      });
+    }
+    if (!v.name.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Name required",
+        path: ["name"],
+      });
+    }
+  });
+
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
@@ -52,7 +108,10 @@ const formSchema = z.object({
   topNoteIds: z.array(z.string()),
   middleNoteIds: z.array(z.string()),
   baseNoteIds: z.array(z.string()),
+  variants: z.array(variantSchema),
 });
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface ProductModalProps {
   brands: Brand[];
@@ -114,8 +173,9 @@ export const ProductModal = ({
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<FormValues>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(formSchema) as any,
     defaultValues: {
       name: "",
       description: "",
@@ -126,12 +186,31 @@ export const ProductModal = ({
       topNoteIds: [],
       middleNoteIds: [],
       baseNoteIds: [],
+      variants: [emptyVariant()],
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "variants",
   });
 
   useEffect(() => {
     if (isOpen) {
       const productNotes = data?.productNotes ?? [];
+      const variants =
+        data?.variants?.map((v) => ({
+          id: v.id,
+          sku: v.sku,
+          name: v.name,
+          concentration: v.concentration as Concentration,
+          volumeMl: v.volumeMl,
+          price: v.price,
+          reorderPoint: v.reorderPoint,
+          isTester: v.isTester,
+          weightGrams: v.weightGrams ?? undefined,
+        })) ?? [emptyVariant()];
+
       form.reset({
         name: data?.name || "",
         description: data?.description || "",
@@ -148,13 +227,14 @@ export const ProductModal = ({
         baseNoteIds: productNotes
           .filter((n) => n.type === "Base")
           .map((n) => n.noteId),
+        variants: variants.length ? variants : [emptyVariant()],
       });
       setPreview(null);
       setFile(null);
     }
   }, [isOpen, data, form]);
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
+  const onSubmit = (values: FormValues) => {
     startTransition(async () => {
       const formData = new FormData();
       formData.append("name", values.name);
@@ -169,6 +249,28 @@ export const ProductModal = ({
         formData.append("middleNoteIds", id),
       );
       values.baseNoteIds.forEach((id) => formData.append("baseNoteIds", id));
+      const variants = values.variants.filter(
+        (v) => v.sku.trim().length > 0 || v.name.trim().length > 0,
+      );
+      formData.append(
+        "variants",
+        JSON.stringify(
+          variants.map((v) => ({
+            id: v.id || undefined,
+            sku: v.sku.trim(),
+            name: v.name.trim(),
+            concentration: v.concentration,
+            volumeMl: Number(v.volumeMl),
+            price: Number(v.price),
+            reorderPoint: Number(v.reorderPoint ?? 0),
+            isTester: Boolean(v.isTester),
+            weightGrams:
+              v.weightGrams === undefined || v.weightGrams === null
+                ? null
+                : Number(v.weightGrams),
+          })),
+        ),
+      );
       if (file) formData.append("image", file);
 
       const result = data
@@ -196,7 +298,7 @@ export const ProductModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[520px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[640px]">
         <DialogHeader>
           <DialogTitle>{data ? "Edit Product" : "Add Product"}</DialogTitle>
         </DialogHeader>
@@ -421,6 +523,199 @@ export const ProductModal = ({
                 </FormItem>
               )}
             />
+
+            <div className="space-y-3 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-medium">Variants</h4>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => append(emptyVariant())}
+                >
+                  <Plus className="mr-1 h-4 w-4" />
+                  Add variant
+                </Button>
+              </div>
+
+              {fields.map((field, index) => (
+                <div
+                  key={field.id}
+                  className="space-y-3 rounded-md border p-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                      Variant {index + 1}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600"
+                      onClick={() => remove(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name={`variants.${index}.id`}
+                    render={({ field: f }) => (
+                      <input type="hidden" {...f} value={f.value ?? ""} />
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name={`variants.${index}.sku`}
+                      render={({ field: f }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">SKU</FormLabel>
+                          <FormControl>
+                            <Input placeholder="PROD-100" {...f} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`variants.${index}.name`}
+                      render={({ field: f }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="100ml Bottle" {...f} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <FormField
+                      control={form.control}
+                      name={`variants.${index}.concentration`}
+                      render={({ field: f }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">
+                            Concentration
+                          </FormLabel>
+                          <Select
+                            onValueChange={f.onChange}
+                            value={f.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {Object.values(Concentration).map((c) => (
+                                <SelectItem key={c} value={c}>
+                                  {c}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`variants.${index}.volumeMl`}
+                      render={({ field: f }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Volume (ml)</FormLabel>
+                          <FormControl>
+                            <Input type="number" {...f} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`variants.${index}.price`}
+                      render={({ field: f }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Price ($)</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" {...f} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name={`variants.${index}.weightGrams`}
+                      render={({ field: f }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">
+                            Weight (g){" "}
+                            <span className="text-muted-foreground">
+                              optional
+                            </span>
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              value={f.value ?? ""}
+                              onChange={f.onChange}
+                              onBlur={f.onBlur}
+                              name={f.name}
+                              ref={f.ref}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`variants.${index}.reorderPoint`}
+                      render={({ field: f }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">
+                            Reorder Point
+                          </FormLabel>
+                          <FormControl>
+                            <Input type="number" {...f} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name={`variants.${index}.isTester`}
+                    render={({ field: f }) => (
+                      <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={f.value}
+                            onCheckedChange={f.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="text-xs font-normal">
+                          Is Tester?
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              ))}
+            </div>
 
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={onClose} type="button">

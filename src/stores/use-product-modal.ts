@@ -1,8 +1,9 @@
 import { create } from "zustand";
-import { Product, ProductNote } from "@/generated/prisma/client";
+import { Product, ProductNote, ProductVariant } from "@/generated/prisma/client";
 
 export type ProductModalData = Product & {
   productNotes?: ProductNote[];
+  variants?: ProductVariant[];
 };
 
 interface ProductModalStore {

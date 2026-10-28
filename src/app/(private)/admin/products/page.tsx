@@ -29,6 +29,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
           category: true,
           scent: true,
           productNotes: { orderBy: { sortOrder: "asc" } },
+          variants: { orderBy: { volumeMl: "asc" } },
           _count: {
             select: { variants: true },
           },

@@ -11,6 +11,7 @@ import {
   Prisma,
   GenderTarget,
   NoteType,
+  Concentration,
 } from "@/generated/prisma/client";
 import {
   deleteFileLocally,
@@ -25,6 +26,20 @@ const productSchema = z.object({
   scentId: z.string().optional().nullable(),
   genderTarget: z.nativeEnum(GenderTarget).optional().nullable(),
 });
+
+const variantInputSchema = z.object({
+  id: z.string().optional(),
+  sku: z.string().min(1, "SKU is required"),
+  name: z.string().min(1, "Name is required"),
+  concentration: z.nativeEnum(Concentration),
+  volumeMl: z.number().min(1),
+  price: z.number().min(0),
+  reorderPoint: z.number().min(0).default(0),
+  isTester: z.boolean().default(false),
+  weightGrams: z.number().nullable().optional(),
+});
+
+type VariantInput = z.infer<typeof variantInputSchema>;
 
 async function checkAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -74,6 +89,39 @@ function buildProductNotes(
   return rows;
 }
 
+function parseVariants(
+  formData: FormData,
+): { ok: true; variants: VariantInput[] } | { ok: false; error: string } {
+  const raw = formData.get("variants");
+  if (!raw || String(raw).length === 0) {
+    return { ok: true, variants: [] };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(String(raw));
+  } catch {
+    return { ok: false, error: "Invalid variants payload" };
+  }
+
+  const validation = z.array(variantInputSchema).safeParse(parsed);
+  if (!validation.success) {
+    return { ok: false, error: "Invalid variant data" };
+  }
+
+  const skus = validation.data.map((v) => v.sku.trim().toLowerCase());
+  if (new Set(skus).size !== skus.length) {
+    return { ok: false, error: "Duplicate SKUs in variant list" };
+  }
+
+  return { ok: true, variants: validation.data };
+}
+
+function revalidateProductPaths() {
+  revalidatePath("/admin/products");
+  revalidatePath("/admin/product-variants");
+}
+
 export async function createProduct(formData: FormData) {
   try {
     await checkAdminOrManager();
@@ -93,6 +141,11 @@ export async function createProduct(formData: FormData) {
     const validation = productSchema.safeParse(rawData);
     if (!validation.success) return { success: false, error: "Invalid data" };
 
+    const variantsResult = parseVariants(formData);
+    if (!variantsResult.ok) {
+      return { success: false, error: variantsResult.error };
+    }
+
     const topNoteIds = parseNoteIds(formData, "topNoteIds");
     const middleNoteIds = parseNoteIds(formData, "middleNoteIds");
     const baseNoteIds = parseNoteIds(formData, "baseNoteIds");
@@ -106,6 +159,20 @@ export async function createProduct(formData: FormData) {
       }
       const uploadResult = await saveFileLocally(file, "products");
       attachmentData = uploadResult;
+    }
+
+    if (variantsResult.variants.length) {
+      const skus = variantsResult.variants.map((v) => v.sku);
+      const existingSku = await prisma.productVariant.findFirst({
+        where: { sku: { in: skus } },
+        select: { sku: true },
+      });
+      if (existingSku) {
+        return {
+          success: false,
+          error: `SKU already exists: ${existingSku.sku}`,
+        };
+      }
     }
 
     await prisma.$transaction(async (tx) => {
@@ -130,6 +197,24 @@ export async function createProduct(formData: FormData) {
         await tx.productNote.createMany({ data: noteRows });
       }
 
+      for (const variant of variantsResult.variants) {
+        await tx.productVariant.create({
+          data: {
+            productId: product.id,
+            sku: variant.sku,
+            name: variant.name,
+            concentration: variant.concentration,
+            volumeMl: variant.volumeMl,
+            price: variant.price,
+            reorderPoint: variant.reorderPoint ?? 0,
+            isTester: variant.isTester ?? false,
+            weightGrams: variant.weightGrams ?? null,
+            stockLevel: 0,
+            specifications: {},
+          },
+        });
+      }
+
       if (attachmentData) {
         await tx.attachment.create({
           data: {
@@ -144,10 +229,15 @@ export async function createProduct(formData: FormData) {
       }
     });
 
-    revalidatePath("/admin/products");
+    revalidateProductPaths();
     return { success: true, message: "Product created" };
   } catch (error) {
     console.error(error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2002") {
+        return { success: false, error: "SKU already exists" };
+      }
+    }
     return { success: false, error: "Failed to create product" };
   }
 }
@@ -171,9 +261,70 @@ export async function updateProduct(id: string, formData: FormData) {
     const validation = productSchema.safeParse(rawData);
     if (!validation.success) return { success: false, error: "Invalid data" };
 
+    const variantsResult = parseVariants(formData);
+    if (!variantsResult.ok) {
+      return { success: false, error: variantsResult.error };
+    }
+
     const topNoteIds = parseNoteIds(formData, "topNoteIds");
     const middleNoteIds = parseNoteIds(formData, "middleNoteIds");
     const baseNoteIds = parseNoteIds(formData, "baseNoteIds");
+
+    const existingVariants = await prisma.productVariant.findMany({
+      where: { productId: id },
+      select: { id: true, sku: true },
+    });
+    const existingIds = new Set(existingVariants.map((v) => v.id));
+    const payloadIds = new Set(
+      variantsResult.variants
+        .map((v) => v.id)
+        .filter((vid): vid is string => Boolean(vid && vid.length)),
+    );
+
+    for (const variant of variantsResult.variants) {
+      if (variant.id && !existingIds.has(variant.id)) {
+        return {
+          success: false,
+          error: `Unknown variant id for SKU ${variant.sku}`,
+        };
+      }
+
+      const skuConflict = await prisma.productVariant.findFirst({
+        where: {
+          sku: variant.sku,
+          NOT: variant.id ? { id: variant.id } : undefined,
+        },
+        select: { sku: true },
+      });
+      if (skuConflict) {
+        return {
+          success: false,
+          error: `SKU already exists: ${skuConflict.sku}`,
+        };
+      }
+    }
+
+    const toDelete = existingVariants.filter((v) => !payloadIds.has(v.id));
+    for (const variant of toDelete) {
+      const orderCount = await prisma.orderItem.count({
+        where: { variantId: variant.id },
+      });
+      if (orderCount > 0) {
+        return {
+          success: false,
+          error: `Cannot remove variant ${variant.sku}: it has been ordered.`,
+        };
+      }
+      const batchCount = await prisma.inventoryBatch.count({
+        where: { variantId: variant.id },
+      });
+      if (batchCount > 0) {
+        return {
+          success: false,
+          error: `Cannot remove variant ${variant.sku}: inventory batches exist.`,
+        };
+      }
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.product.update({
@@ -197,6 +348,46 @@ export async function updateProduct(id: string, formData: FormData) {
       );
       if (noteRows.length) {
         await tx.productNote.createMany({ data: noteRows });
+      }
+
+      if (toDelete.length) {
+        await tx.productVariant.deleteMany({
+          where: { id: { in: toDelete.map((v) => v.id) } },
+        });
+      }
+
+      for (const variant of variantsResult.variants) {
+        if (variant.id) {
+          await tx.productVariant.update({
+            where: { id: variant.id },
+            data: {
+              sku: variant.sku,
+              name: variant.name,
+              concentration: variant.concentration,
+              volumeMl: variant.volumeMl,
+              price: variant.price,
+              reorderPoint: variant.reorderPoint ?? 0,
+              isTester: variant.isTester ?? false,
+              weightGrams: variant.weightGrams ?? null,
+            },
+          });
+        } else {
+          await tx.productVariant.create({
+            data: {
+              productId: id,
+              sku: variant.sku,
+              name: variant.name,
+              concentration: variant.concentration,
+              volumeMl: variant.volumeMl,
+              price: variant.price,
+              reorderPoint: variant.reorderPoint ?? 0,
+              isTester: variant.isTester ?? false,
+              weightGrams: variant.weightGrams ?? null,
+              stockLevel: 0,
+              specifications: {},
+            },
+          });
+        }
       }
     });
 
@@ -225,10 +416,15 @@ export async function updateProduct(id: string, formData: FormData) {
       });
     }
 
-    revalidatePath("/admin/products");
+    revalidateProductPaths();
     return { success: true, message: "Product updated" };
   } catch (error) {
     console.error(error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2002") {
+        return { success: false, error: "SKU already exists" };
+      }
+    }
     return { success: false, error: "Failed to update product" };
   }
 }
@@ -285,7 +481,7 @@ export async function deleteProduct(id: string) {
     await prisma.productNote.deleteMany({ where: { productId: id } });
     await prisma.product.delete({ where: { id } });
 
-    revalidatePath("/admin/products");
+    revalidateProductPaths();
     return { success: true, message: "Product deleted successfully" };
   } catch (error) {
     console.error("Delete product error:", error);
