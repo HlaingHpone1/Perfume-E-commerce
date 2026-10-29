@@ -4,7 +4,8 @@ import { z } from "zod";
 import { prisma } from "@/config/auth";
 import { auth } from "@/config/auth";
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { LOOKUP_TAGS } from "@/lib/lookups";
 import { User, AttachmentRecordType } from "@/generated/prisma/client";
 import {
   deleteFileLocally,
@@ -67,6 +68,7 @@ export async function createScent(formData: FormData) {
     });
 
     revalidatePath("/admin/scents");
+    updateTag(LOOKUP_TAGS.scents);
     return { success: true, message: "Scent created" };
   } catch (error) {
     console.error(error);
@@ -114,6 +116,7 @@ export async function updateScent(id: string, formData: FormData) {
     }
 
     revalidatePath("/admin/scents");
+    updateTag(LOOKUP_TAGS.scents);
     return { success: true, message: "Scent updated" };
   } catch (error) {
     console.error(error);
@@ -145,9 +148,39 @@ export async function deleteScent(id: string) {
     await prisma.scent.delete({ where: { id } });
 
     revalidatePath("/admin/scents");
+    updateTag(LOOKUP_TAGS.scents);
     return { success: true, message: "Scent deleted" };
   } catch (error) {
     console.error(error);
     return { success: false, error: "Failed to delete scent" };
+  }
+}
+
+export async function ensureScent(title: string) {
+  try {
+    await checkAdminOrManager();
+
+    const trimmed = title.trim();
+    if (!trimmed) return { success: false as const, error: "Title is required" };
+
+    const existing = await prisma.scent.findFirst({
+      where: { title: { equals: trimmed, mode: "insensitive" } },
+      select: { id: true, title: true },
+    });
+    if (existing) {
+      return { success: true as const, scent: existing };
+    }
+
+    const scent = await prisma.scent.create({
+      data: { title: trimmed },
+      select: { id: true, title: true },
+    });
+
+    revalidatePath("/admin/scents");
+    updateTag(LOOKUP_TAGS.scents);
+    return { success: true as const, scent };
+  } catch (error) {
+    console.error(error);
+    return { success: false as const, error: "Failed to create scent" };
   }
 }

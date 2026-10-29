@@ -4,7 +4,8 @@ import { z } from "zod";
 import { prisma } from "@/config/auth";
 import { auth } from "@/config/auth";
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { LOOKUP_TAGS } from "@/lib/lookups";
 import { User, AttachmentRecordType } from "@/generated/prisma/client";
 import {
   deleteFileLocally,
@@ -67,6 +68,7 @@ export async function createNote(formData: FormData) {
     });
 
     revalidatePath("/admin/notes");
+    updateTag(LOOKUP_TAGS.notes);
     return { success: true, message: "Note created" };
   } catch (error) {
     console.error(error);
@@ -114,6 +116,7 @@ export async function updateNote(id: string, formData: FormData) {
     }
 
     revalidatePath("/admin/notes");
+    updateTag(LOOKUP_TAGS.notes);
     return { success: true, message: "Note updated" };
   } catch (error) {
     console.error(error);
@@ -147,9 +150,39 @@ export async function deleteNote(id: string) {
     await prisma.note.delete({ where: { id } });
 
     revalidatePath("/admin/notes");
+    updateTag(LOOKUP_TAGS.notes);
     return { success: true, message: "Note deleted" };
   } catch (error) {
     console.error(error);
     return { success: false, error: "Failed to delete note" };
+  }
+}
+
+export async function ensureNote(title: string) {
+  try {
+    await checkAdminOrManager();
+
+    const trimmed = title.trim();
+    if (!trimmed) return { success: false as const, error: "Title is required" };
+
+    const existing = await prisma.note.findFirst({
+      where: { title: { equals: trimmed, mode: "insensitive" } },
+      select: { id: true, title: true },
+    });
+    if (existing) {
+      return { success: true as const, note: existing };
+    }
+
+    const note = await prisma.note.create({
+      data: { title: trimmed },
+      select: { id: true, title: true },
+    });
+
+    revalidatePath("/admin/notes");
+    updateTag(LOOKUP_TAGS.notes);
+    return { success: true as const, note };
+  } catch (error) {
+    console.error(error);
+    return { success: false as const, error: "Failed to create note" };
   }
 }

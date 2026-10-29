@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/config/auth";
 import { auth } from "@/config/auth";
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import {
   User,
   AttachmentRecordType,
@@ -120,6 +120,7 @@ function parseVariants(
 function revalidateProductPaths() {
   revalidatePath("/admin/products");
   revalidatePath("/admin/product-variants");
+  updateTag("catalog-featured");
 }
 
 export async function createProduct(formData: FormData) {

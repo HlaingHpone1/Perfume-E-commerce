@@ -4,7 +4,8 @@ import { z } from "zod";
 import { prisma } from "@/config/auth";
 import { auth } from "@/config/auth";
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { LOOKUP_TAGS } from "@/lib/lookups";
 import { User } from "@/generated/prisma/client";
 
 const brandSchema = z.object({
@@ -52,6 +53,7 @@ export async function createBrand(data: BrandFormValues) {
     });
 
     revalidatePath("/admin/brands");
+    updateTag(LOOKUP_TAGS.brands);
     return { success: true, message: "Brand created" };
   } catch (error) {
     return { success: false, error: "Failed to create brand" };
@@ -74,6 +76,7 @@ export async function updateBrand(id: string, data: BrandFormValues) {
     });
 
     revalidatePath("/admin/brands");
+    updateTag(LOOKUP_TAGS.brands);
     return { success: true, message: "Brand updated" };
   } catch (error) {
     return { success: false, error: "Failed to update brand" };
@@ -99,6 +102,7 @@ export async function deleteBrand(id: string) {
     await prisma.brand.delete({ where: { id } });
 
     revalidatePath("/admin/brands");
+    updateTag(LOOKUP_TAGS.brands);
     return { success: true, message: "Brand deleted" };
   } catch (error) {
     return { success: false, error: "Failed to delete brand" };

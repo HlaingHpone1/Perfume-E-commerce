@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -28,13 +28,43 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Upload } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  Loader2,
+  Plus,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { Brand, Category, Note, Scent } from "@/generated/prisma/client";
 import { createProduct, updateProduct } from "./action";
 import Image from "next/image";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useProductModal } from "@/stores/use-product-modal";
+import { ensureScent } from "@/templates/scent/action";
+import { ensureNote } from "@/templates/note/action";
+import { cn } from "@/utils";
+
+type CategoryWithParent = Category & {
+  parentCategory?: { id: string; name: string } | null;
+};
+
+type Option = { id: string; label: string };
 
 enum GenderTarget {
   Men = "Men",
@@ -115,51 +145,15 @@ type FormValues = z.infer<typeof formSchema>;
 
 interface ProductModalProps {
   brands: Brand[];
-  categories: Category[];
+  categories: CategoryWithParent[];
   scents: Scent[];
   notes: Note[];
 }
 
-function NoteChecklist({
-  notes,
-  value,
-  onChange,
-  label,
-}: {
-  notes: Note[];
-  value: string[];
-  onChange: (ids: string[]) => void;
-  label: string;
-}) {
-  return (
-    <div className="space-y-2">
-      <FormLabel className="text-xs">{label}</FormLabel>
-      <div className="max-h-28 space-y-1.5 overflow-y-auto rounded-md border p-2">
-        {notes.length === 0 ? (
-          <p className="text-muted-foreground text-xs">No notes yet</p>
-        ) : (
-          notes.map((note) => {
-            const checked = value.includes(note.id);
-            return (
-              <label
-                key={note.id}
-                className="flex cursor-pointer items-center gap-2 text-sm"
-              >
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={(v) => {
-                    if (v) onChange([...value, note.id]);
-                    else onChange(value.filter((id) => id !== note.id));
-                  }}
-                />
-                <span>{note.title}</span>
-              </label>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
+function categoryLabel(c: CategoryWithParent) {
+  return c.parentCategory
+    ? `${c.parentCategory.name} / ${c.name}`
+    : c.name;
 }
 
 export const ProductModal = ({
@@ -170,8 +164,29 @@ export const ProductModal = ({
 }: ProductModalProps) => {
   const { isOpen, onClose, data } = useProductModal();
   const [loading, startTransition] = useTransition();
+  const [creating, startCreate] = useTransition();
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [scentOptions, setScentOptions] = useState<Option[]>([]);
+  const [noteOptions, setNoteOptions] = useState<Option[]>([]);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [categoryQuery, setCategoryQuery] = useState("");
+  const [scentOpen, setScentOpen] = useState(false);
+  const [scentQuery, setScentQuery] = useState("");
+  const [topOpen, setTopOpen] = useState(false);
+  const [topQuery, setTopQuery] = useState("");
+  const [middleOpen, setMiddleOpen] = useState(false);
+  const [middleQuery, setMiddleQuery] = useState("");
+  const [baseOpen, setBaseOpen] = useState(false);
+  const [baseQuery, setBaseQuery] = useState("");
+
+  const categoryOptions = useMemo(
+    () =>
+      categories
+        .map((c) => ({ id: c.id, label: categoryLabel(c) }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [categories],
+  );
 
   const form = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -195,44 +210,80 @@ export const ProductModal = ({
     name: "variants",
   });
 
+  // Only reset form when the modal opens or the edited product changes —
+  // not when scents/notes lists refresh after ensureScent/ensureNote.
   useEffect(() => {
-    if (isOpen) {
-      const productNotes = data?.productNotes ?? [];
-      const variants =
-        data?.variants?.map((v) => ({
-          id: v.id,
-          sku: v.sku,
-          name: v.name,
-          concentration: v.concentration as Concentration,
-          volumeMl: v.volumeMl,
-          price: v.price,
-          reorderPoint: v.reorderPoint,
-          isTester: v.isTester,
-          weightGrams: v.weightGrams ?? undefined,
-        })) ?? [emptyVariant()];
+    if (!isOpen) return;
 
-      form.reset({
-        name: data?.name || "",
-        description: data?.description || "",
-        brandId: data?.brandId || "",
-        categoryId: data?.categoryId || "",
-        scentId: data?.scentId || "",
-        genderTarget: (data?.genderTarget as GenderTarget | null) || "",
-        topNoteIds: productNotes
-          .filter((n) => n.type === "Top")
-          .map((n) => n.noteId),
-        middleNoteIds: productNotes
-          .filter((n) => n.type === "Middle")
-          .map((n) => n.noteId),
-        baseNoteIds: productNotes
-          .filter((n) => n.type === "Base")
-          .map((n) => n.noteId),
-        variants: variants.length ? variants : [emptyVariant()],
-      });
-      setPreview(null);
-      setFile(null);
-    }
+    setScentOptions(
+      scents
+        .map((s) => ({ id: s.id, label: s.title }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    );
+    setNoteOptions(
+      notes
+        .map((n) => ({ id: n.id, label: n.title }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    );
+    setCategoryQuery("");
+    setScentQuery("");
+    setTopQuery("");
+    setMiddleQuery("");
+    setBaseQuery("");
+
+    const productNotes = data?.productNotes ?? [];
+    const variants =
+      data?.variants?.map((v) => ({
+        id: v.id,
+        sku: v.sku,
+        name: v.name,
+        concentration: v.concentration as Concentration,
+        volumeMl: v.volumeMl,
+        price: v.price,
+        reorderPoint: v.reorderPoint,
+        isTester: v.isTester,
+        weightGrams: v.weightGrams ?? undefined,
+      })) ?? [emptyVariant()];
+
+    form.reset({
+      name: data?.name || "",
+      description: data?.description || "",
+      brandId: data?.brandId || "",
+      categoryId: data?.categoryId || "",
+      scentId: data?.scentId || "",
+      genderTarget: (data?.genderTarget as GenderTarget | null) || "",
+      topNoteIds: productNotes
+        .filter((n) => n.type === "Top")
+        .map((n) => n.noteId),
+      middleNoteIds: productNotes
+        .filter((n) => n.type === "Middle")
+        .map((n) => n.noteId),
+      baseNoteIds: productNotes
+        .filter((n) => n.type === "Base")
+        .map((n) => n.noteId),
+      variants: variants.length ? variants : [emptyVariant()],
+    });
+    setPreview(null);
+    setFile(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: don't reset on scents/notes refresh
   }, [isOpen, data, form]);
+
+  // Merge newly created catalog items into option lists without touching form values.
+  useEffect(() => {
+    if (!isOpen) return;
+    setScentOptions((prev) => {
+      const fromServer = scents.map((s) => ({ id: s.id, label: s.title }));
+      const map = new Map(fromServer.map((o) => [o.id, o]));
+      for (const o of prev) if (!map.has(o.id)) map.set(o.id, o);
+      return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+    });
+    setNoteOptions((prev) => {
+      const fromServer = notes.map((n) => ({ id: n.id, label: n.title }));
+      const map = new Map(fromServer.map((o) => [o.id, o]));
+      for (const o of prev) if (!map.has(o.id)) map.set(o.id, o);
+      return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+    });
+  }, [isOpen, scents, notes]);
 
   const onSubmit = (values: FormValues) => {
     startTransition(async () => {
@@ -371,26 +422,81 @@ export const ProductModal = ({
               <FormField
                 control={form.control}
                 name="categoryId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select Category" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {categories.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const selected = categoryOptions.find(
+                    (o) => o.id === field.value,
+                  );
+                  const q = categoryQuery.trim().toLowerCase();
+                  const filtered = q
+                    ? categoryOptions.filter((o) =>
+                        o.label.toLowerCase().includes(q),
+                      )
+                    : categoryOptions;
+                  return (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <Popover
+                        open={categoryOpen}
+                        onOpenChange={setCategoryOpen}
+                        modal
+                      >
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between font-normal"
+                            >
+                              <span className="truncate">
+                                {selected?.label || "Select category"}
+                              </span>
+                              <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="p-0" collisionPadding={8}>
+                          <Command shouldFilter={false}>
+                            <CommandInput
+                              placeholder="Search categories…"
+                              value={categoryQuery}
+                              onValueChange={setCategoryQuery}
+                            />
+                            <CommandList>
+                              <CommandEmpty>No results</CommandEmpty>
+                              <CommandGroup>
+                                {filtered.map((option) => (
+                                  <CommandItem
+                                    key={option.id}
+                                    value={option.id}
+                                    onSelect={() => {
+                                      field.onChange(option.id);
+                                      setCategoryOpen(false);
+                                      setCategoryQuery("");
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 size-4",
+                                        field.value === option.id
+                                          ? "opacity-100"
+                                          : "opacity-0",
+                                      )}
+                                    />
+                                    <span className="truncate">
+                                      {option.label}
+                                    </span>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
             </div>
 
@@ -398,32 +504,141 @@ export const ProductModal = ({
               <FormField
                 control={form.control}
                 name="scentId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Scent Family</FormLabel>
-                    <Select
-                      onValueChange={(v) =>
-                        field.onChange(v === "__none__" ? "" : v)
-                      }
-                      value={field.value || "__none__"}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select Scent" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__none__">None</SelectItem>
-                        {scents.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const selected = scentOptions.find(
+                    (o) => o.id === field.value,
+                  );
+                  const trimmed = scentQuery.trim();
+                  const q = trimmed.toLowerCase();
+                  const filtered = q
+                    ? scentOptions.filter((o) =>
+                        o.label.toLowerCase().includes(q),
+                      )
+                    : scentOptions;
+                  const exactMatch = scentOptions.some(
+                    (o) => o.label.toLowerCase() === q,
+                  );
+                  return (
+                    <FormItem>
+                      <FormLabel>Scent Family</FormLabel>
+                      <Popover
+                        open={scentOpen}
+                        onOpenChange={setScentOpen}
+                        modal
+                      >
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between font-normal"
+                            >
+                              <span className="truncate">
+                                {selected?.label || "Select scent"}
+                              </span>
+                              <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="p-0" collisionPadding={8}>
+                          <Command shouldFilter={false}>
+                            <CommandInput
+                              placeholder="Search or create scent…"
+                              value={scentQuery}
+                              onValueChange={setScentQuery}
+                            />
+                            <CommandList>
+                              <CommandEmpty>
+                                {trimmed
+                                  ? "No match — create below"
+                                  : "No results"}
+                              </CommandEmpty>
+                              <CommandGroup>
+                                {field.value ? (
+                                  <CommandItem
+                                    value="__clear__"
+                                    onSelect={() => {
+                                      field.onChange("");
+                                      setScentOpen(false);
+                                      setScentQuery("");
+                                    }}
+                                  >
+                                    Clear selection
+                                  </CommandItem>
+                                ) : null}
+                                {filtered.map((option) => (
+                                  <CommandItem
+                                    key={option.id}
+                                    value={option.id}
+                                    onSelect={() => {
+                                      field.onChange(option.id);
+                                      setScentOpen(false);
+                                      setScentQuery("");
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 size-4",
+                                        field.value === option.id
+                                          ? "opacity-100"
+                                          : "opacity-0",
+                                      )}
+                                    />
+                                    <span className="truncate">
+                                      {option.label}
+                                    </span>
+                                  </CommandItem>
+                                ))}
+                                {trimmed && !exactMatch ? (
+                                  <CommandItem
+                                    value={`__create__${trimmed}`}
+                                    disabled={creating}
+                                    onSelect={() => {
+                                      startCreate(async () => {
+                                        const result =
+                                          await ensureScent(trimmed);
+                                        if (!result.success) {
+                                          toast.error(
+                                            result.error ||
+                                              "Failed to create scent",
+                                          );
+                                          return;
+                                        }
+                                        const item = {
+                                          id: result.scent.id,
+                                          label: result.scent.title,
+                                        };
+                                        setScentOptions((prev) =>
+                                          prev.some((o) => o.id === item.id)
+                                            ? prev
+                                            : [...prev, item].sort((a, b) =>
+                                                a.label.localeCompare(b.label),
+                                              ),
+                                        );
+                                        field.onChange(item.id);
+                                        setScentOpen(false);
+                                        setScentQuery("");
+                                      });
+                                    }}
+                                  >
+                                    {creating ? (
+                                      <Loader2 className="mr-2 size-4 animate-spin" />
+                                    ) : (
+                                      <Plus className="mr-2 size-4" />
+                                    )}
+                                    Create “{trimmed}”
+                                  </CommandItem>
+                                ) : null}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
 
               <FormField
@@ -462,48 +677,208 @@ export const ProductModal = ({
 
             <div className="space-y-3">
               <h4 className="text-sm font-medium">Fragrance Notes</h4>
-              <FormField
-                control={form.control}
-                name="topNoteIds"
-                render={({ field }) => (
-                  <FormItem>
-                    <NoteChecklist
-                      label="Top Notes"
-                      notes={notes}
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="middleNoteIds"
-                render={({ field }) => (
-                  <FormItem>
-                    <NoteChecklist
-                      label="Middle / Heart Notes"
-                      notes={notes}
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="baseNoteIds"
-                render={({ field }) => (
-                  <FormItem>
-                    <NoteChecklist
-                      label="Base Notes"
-                      notes={notes}
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormItem>
-                )}
-              />
+              {(
+                [
+                  {
+                    name: "topNoteIds" as const,
+                    label: "Top Notes",
+                    open: topOpen,
+                    setOpen: setTopOpen,
+                    query: topQuery,
+                    setQuery: setTopQuery,
+                    placeholder: "Add top notes",
+                  },
+                  {
+                    name: "middleNoteIds" as const,
+                    label: "Middle / Heart Notes",
+                    open: middleOpen,
+                    setOpen: setMiddleOpen,
+                    query: middleQuery,
+                    setQuery: setMiddleQuery,
+                    placeholder: "Add middle notes",
+                  },
+                  {
+                    name: "baseNoteIds" as const,
+                    label: "Base Notes",
+                    open: baseOpen,
+                    setOpen: setBaseOpen,
+                    query: baseQuery,
+                    setQuery: setBaseQuery,
+                    placeholder: "Add base notes",
+                  },
+                ] as const
+              ).map((noteField) => (
+                <FormField
+                  key={noteField.name}
+                  control={form.control}
+                  name={noteField.name}
+                  render={({ field }) => {
+                    const selected = noteOptions.filter((o) =>
+                      field.value.includes(o.id),
+                    );
+                    const trimmed = noteField.query.trim();
+                    const q = trimmed.toLowerCase();
+                    const filtered = q
+                      ? noteOptions.filter((o) =>
+                          o.label.toLowerCase().includes(q),
+                        )
+                      : noteOptions;
+                    const exactMatch = noteOptions.some(
+                      (o) => o.label.toLowerCase() === q,
+                    );
+                    const toggle = (id: string) => {
+                      if (field.value.includes(id)) {
+                        field.onChange(field.value.filter((v) => v !== id));
+                      } else {
+                        field.onChange([...field.value, id]);
+                      }
+                    };
+                    return (
+                      <FormItem>
+                        <FormLabel className="text-xs">
+                          {noteField.label}
+                        </FormLabel>
+                        {selected.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {selected.map((item) => (
+                              <span
+                                key={item.id}
+                                className="bg-secondary text-secondary-foreground inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs"
+                              >
+                                {item.label}
+                                <button
+                                  type="button"
+                                  className="hover:text-foreground"
+                                  onClick={() => toggle(item.id)}
+                                  aria-label={`Remove ${item.label}`}
+                                >
+                                  <X className="size-3" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        <Popover
+                          open={noteField.open}
+                          onOpenChange={noteField.setOpen}
+                          modal
+                        >
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                role="combobox"
+                                className="w-full justify-between font-normal"
+                              >
+                                <span className="text-muted-foreground truncate">
+                                  {noteField.placeholder}
+                                </span>
+                                <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            className="p-0"
+                            collisionPadding={8}
+                          >
+                            <Command shouldFilter={false}>
+                              <CommandInput
+                                placeholder="Search or create note…"
+                                value={noteField.query}
+                                onValueChange={noteField.setQuery}
+                              />
+                              <CommandList>
+                                <CommandEmpty>
+                                  {trimmed
+                                    ? "No match — create below"
+                                    : "No results"}
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  {filtered.map((option) => {
+                                    const checked = field.value.includes(
+                                      option.id,
+                                    );
+                                    return (
+                                      <CommandItem
+                                        key={option.id}
+                                        value={option.id}
+                                        onSelect={() => toggle(option.id)}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 size-4",
+                                            checked
+                                              ? "opacity-100"
+                                              : "opacity-0",
+                                          )}
+                                        />
+                                        <span className="truncate">
+                                          {option.label}
+                                        </span>
+                                      </CommandItem>
+                                    );
+                                  })}
+                                  {trimmed && !exactMatch ? (
+                                    <CommandItem
+                                      value={`__create__${trimmed}`}
+                                      disabled={creating}
+                                      onSelect={() => {
+                                        startCreate(async () => {
+                                          const result =
+                                            await ensureNote(trimmed);
+                                          if (!result.success) {
+                                            toast.error(
+                                              result.error ||
+                                                "Failed to create note",
+                                            );
+                                            return;
+                                          }
+                                          const item = {
+                                            id: result.note.id,
+                                            label: result.note.title,
+                                          };
+                                          setNoteOptions((prev) =>
+                                            prev.some((o) => o.id === item.id)
+                                              ? prev
+                                              : [...prev, item].sort((a, b) =>
+                                                  a.label.localeCompare(
+                                                    b.label,
+                                                  ),
+                                                ),
+                                          );
+                                          const current = form.getValues(
+                                            noteField.name,
+                                          );
+                                          if (!current.includes(item.id)) {
+                                            field.onChange([
+                                              ...current,
+                                              item.id,
+                                            ]);
+                                          }
+                                          noteField.setQuery("");
+                                        });
+                                      }}
+                                    >
+                                      {creating ? (
+                                        <Loader2 className="mr-2 size-4 animate-spin" />
+                                      ) : (
+                                        <Plus className="mr-2 size-4" />
+                                      )}
+                                      Create “{trimmed}”
+                                    </CommandItem>
+                                  ) : null}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
+                />
+              ))}
             </div>
 
             <FormField

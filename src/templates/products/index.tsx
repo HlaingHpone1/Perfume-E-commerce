@@ -36,6 +36,10 @@ import { toast } from "sonner";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 
+type CategoryWithParent = Category & {
+  parentCategory?: { id: string; name: string } | null;
+};
+
 type ProductWithRelations = Product & {
   brand: Brand;
   category: Category;
@@ -49,7 +53,7 @@ type ProductWithRelations = Product & {
 interface ProductTableProps {
   data: ProductWithRelations[];
   allBrands: Brand[];
-  allCategories: Category[];
+  allCategories: CategoryWithParent[];
   allScents: Scent[];
   allNotes: Note[];
   totalPages: number;

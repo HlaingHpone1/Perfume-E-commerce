@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { auth } from "@/config/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getSession } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "FragranceHub",
@@ -13,10 +13,7 @@ export default async function PublicLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [session, headersList] = await Promise.all([
-    auth.api.getSession({ headers: await headers() }),
-    headers(),
-  ]);
+  const [session, headersList] = await Promise.all([getSession(), headers()]);
 
   if (!session) {
     const currentPath = headersList.get("x-pathname") || "/";

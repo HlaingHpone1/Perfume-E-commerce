@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/config/auth"; // Server-side auth
-import { headers } from "next/headers";
 import { AdminSidebar } from "@/components/sidebar";
+import { getSession } from "@/lib/session";
 import { User } from "@/generated/prisma/client";
 
 export default async function AdminLayout({
@@ -9,9 +8,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getSession();
 
   if (session && (session.user as User).role === "CUSTOMER") {
     redirect("/");

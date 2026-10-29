@@ -111,23 +111,23 @@ function NotePyramid({ notes }: { notes: ProductNoteDisplay[] }) {
             <p className="text-foreground text-[0.65rem] tracking-[0.18em] uppercase">
               {label}
             </p>
-            <ul className="mt-3 space-y-2">
+            <ul className="mt-3 space-y-3">
               {items.map((note) => (
                 <li
                   key={`${key}-${note.title}`}
-                  className="flex items-center gap-2.5"
+                  className="flex items-center gap-3"
                 >
-                  {note.imageUrl ? (
-                    <span className="relative h-8 w-8 flex-shrink-0 overflow-hidden bg-[var(--storefront-mist)]">
+                  <span className="relative h-14 w-14 flex-shrink-0 overflow-hidden bg-[var(--storefront-mist)]">
+                    {note.imageUrl ? (
                       <Image
                         src={note.imageUrl}
                         alt={note.title}
                         fill
                         className="object-cover"
-                        sizes="32px"
+                        sizes="56px"
                       />
-                    </span>
-                  ) : null}
+                    ) : null}
+                  </span>
                   <span className="text-muted-foreground text-sm">
                     {note.title}
                   </span>

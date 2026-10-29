@@ -1,6 +1,5 @@
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth } from "@/config/auth";
+import { getSession } from "@/lib/session";
 import { User } from "@/generated/prisma/client";
 import { SettingsForm } from "@/templates/settings";
 
@@ -9,9 +8,7 @@ export const metadata = {
 };
 
 export default async function SettingsPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getSession();
   const user = session?.user as User | undefined;
 
   if (!user) {

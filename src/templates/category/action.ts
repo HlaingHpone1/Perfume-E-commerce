@@ -4,7 +4,8 @@ import { z } from "zod";
 import { prisma } from "@/config/auth";
 import { auth } from "@/config/auth";
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { LOOKUP_TAGS } from "@/lib/lookups";
 import { User } from "@/generated/prisma/client";
 
 // --- Schema ---
@@ -64,6 +65,8 @@ export async function createCategory(data: CategoryFormValues) {
     });
 
     revalidatePath("/admin/categories");
+    updateTag(LOOKUP_TAGS.categories);
+    updateTag("catalog-categories");
     return { success: true, message: "Category created successfully" };
   } catch (error) {
     console.error(error);
@@ -100,6 +103,8 @@ export async function updateCategory(id: string, data: CategoryFormValues) {
     });
 
     revalidatePath("/admin/categories");
+    updateTag(LOOKUP_TAGS.categories);
+    updateTag("catalog-categories");
     return { success: true, message: "Category updated successfully" };
   } catch (error) {
     return { success: false, error: "Failed to update category" };
@@ -135,6 +140,8 @@ export async function deleteCategory(id: string) {
     await prisma.category.delete({ where: { id } });
 
     revalidatePath("/admin/categories");
+    updateTag(LOOKUP_TAGS.categories);
+    updateTag("catalog-categories");
     return { success: true, message: "Category deleted successfully" };
   } catch (error) {
     return { success: false, error: "Failed to delete category" };

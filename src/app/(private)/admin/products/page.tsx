@@ -1,6 +1,12 @@
 import { Suspense } from "react";
 import { prisma } from "@/config/auth";
 import { AttachmentRecordType, Prisma } from "@/generated/prisma/client";
+import {
+  getBrandOptions,
+  getCategoryOptions,
+  getNoteOptions,
+  getScentOptions,
+} from "@/lib/lookups";
 import { ProductTable } from "@/templates/products";
 
 type PageProps = {
@@ -38,10 +44,10 @@ export default async function ProductsPage({ searchParams }: PageProps) {
         take: limit,
         skip: skip,
       }),
-      prisma.brand.findMany({ orderBy: { name: "asc" } }),
-      prisma.category.findMany({ orderBy: { name: "asc" } }),
-      prisma.scent.findMany({ orderBy: { title: "asc" } }),
-      prisma.note.findMany({ orderBy: { title: "asc" } }),
+      getBrandOptions(),
+      getCategoryOptions(),
+      getScentOptions(),
+      getNoteOptions(),
     ]);
 
   const productIds = products.map((p) => p.id);

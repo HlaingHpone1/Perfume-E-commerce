@@ -4,14 +4,63 @@ import {
   AttachmentRecordType,
   GenderTarget,
   NoteType,
+  UserRole,
 } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { hashPassword } from "better-auth/crypto";
+import { randomUUID } from "node:crypto";
 import "dotenv/config";
 
 const connectionString = process.env.DATABASE_URL || "";
 
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
+
+const ADMIN_EMAIL = "admin@gmail.com";
+const ADMIN_PASSWORD = "P@ssw0rd";
+
+async function seedAdminUser() {
+  console.log("👤 Seeding admin user...");
+  const hashedPassword = await hashPassword(ADMIN_PASSWORD);
+
+  const admin = await prisma.user.upsert({
+    where: { email: ADMIN_EMAIL },
+    update: {
+      name: "Admin",
+      role: UserRole.ADMIN,
+      emailVerified: true,
+    },
+    create: {
+      name: "Admin",
+      email: ADMIN_EMAIL,
+      emailVerified: true,
+      role: UserRole.ADMIN,
+    },
+  });
+
+  const existingAccount = await prisma.account.findFirst({
+    where: { userId: admin.id, providerId: "credential" },
+  });
+
+  if (existingAccount) {
+    await prisma.account.update({
+      where: { id: existingAccount.id },
+      data: { password: hashedPassword },
+    });
+  } else {
+    await prisma.account.create({
+      data: {
+        id: randomUUID(),
+        accountId: admin.id,
+        providerId: "credential",
+        userId: admin.id,
+        password: hashedPassword,
+      },
+    });
+  }
+
+  console.log(`   → ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
+}
 
 async function main() {
   console.log("🌱 Starting database seed...");
@@ -31,6 +80,8 @@ async function main() {
   await prisma.category.deleteMany();
   await prisma.brand.deleteMany();
   await prisma.auditLog.deleteMany();
+
+  await seedAdminUser();
 
   console.log("📦 Seeding Brands...");
   const chanel = await prisma.brand.create({
