@@ -1,4 +1,4 @@
-export default function PublicLoading() {
+export default function ProductsLoading() {
   return (
     <div className="storefront mx-auto max-w-6xl animate-pulse px-6 py-16 lg:px-8">
       <div className="bg-muted mb-6 h-10 w-48" />
