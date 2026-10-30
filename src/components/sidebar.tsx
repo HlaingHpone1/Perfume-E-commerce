@@ -14,6 +14,7 @@ import {
   Settings,
   LogOut,
   PackageOpen,
+  Mail,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/config/auth-client";
@@ -87,6 +88,11 @@ const sidebarItems = [
   {
     group: "System",
     items: [
+      {
+        title: "Contact Messages",
+        href: "/admin/contact-messages",
+        icon: Mail,
+      },
       {
         title: "Audit Logs",
         href: "/admin/audit-logs",

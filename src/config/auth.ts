@@ -7,8 +7,12 @@ import { sendPasswordResetEmail } from "@/config/email";
 
 const connectionString = `${process.env.DATABASE_URL}`;
 
+/** Bump when adding Prisma models so stale globalThis clients are discarded in dev. */
+const PRISMA_CLIENT_GENERATION = 2;
+
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
+  prismaGeneration: number | undefined;
   auth: ReturnType<typeof betterAuth> | undefined;
 };
 
@@ -17,7 +21,28 @@ function createPrismaClient() {
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+function getPrismaClient() {
+  const cached = globalForPrisma.prisma;
+  const isFresh =
+    cached &&
+    globalForPrisma.prismaGeneration === PRISMA_CLIENT_GENERATION &&
+    typeof cached.contactSubmission?.count === "function";
+
+  if (isFresh) {
+    return cached;
+  }
+
+  const client = createPrismaClient();
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = client;
+    globalForPrisma.prismaGeneration = PRISMA_CLIENT_GENERATION;
+    // Auth binds the old prisma adapter — force recreate.
+    globalForPrisma.auth = undefined;
+  }
+  return client;
+}
+
+export const prisma = getPrismaClient();
 
 export const auth =
   globalForPrisma.auth ||
@@ -60,6 +85,5 @@ export const auth =
   });
 
 if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
   globalForPrisma.auth = auth;
 }

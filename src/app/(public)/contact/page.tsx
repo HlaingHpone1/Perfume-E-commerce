@@ -7,6 +7,7 @@ import { Send } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { submitContactForm } from "@/templates/contact/action";
 
 export default function ContactPage() {
   const t = useTranslations();
@@ -22,10 +23,19 @@ export default function ContactPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    toast.success(t("page.contact.successMessage"));
-    setFormData({ name: "", email: "", subject: "", message: "" });
-    setIsSubmitting(false);
+    try {
+      const result = await submitContactForm(formData);
+      if (result.success) {
+        toast.success(t("page.contact.successMessage"));
+        setFormData({ name: "", email: "", subject: "", message: "" });
+      } else {
+        toast.error(result.error ?? "Failed to send message");
+      }
+    } catch {
+      toast.error("Failed to send message");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (

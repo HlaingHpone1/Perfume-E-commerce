@@ -63,6 +63,12 @@ enum NoteType {
   Base
 }
 
+enum ContactStatus {
+  NEW
+  READ
+  ARCHIVED
+}
+
 // =======================
 // AUTHENTICATION (Required for User ID in Orders)
 // =======================
@@ -415,4 +421,19 @@ model AuditLog {
   @@index([timestamp])
   @@index([changedBy])
   @@map("audit_log")
+}
+
+model ContactSubmission {
+  id        String        @id @default(uuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  status    ContactStatus @default(NEW)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([status, createdAt])
+  @@index([email])
+  @@map("contact_submission")
 }
